@@ -64,13 +64,12 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
     <h2>💾 Flash SD Card via USB</h2>
 
     <div class="step"><span class="num">1</span> Insert SD card into <strong>USB card reader</strong> and connect to PC</div>
-    <div class="step"><span class="num">2</span> Click <strong>"📀 Flash SD Card"</strong> — select the reader in the USB picker</div>
+    <div class="step"><span class="num">2</span> Click <strong>"📀 Flash SD Card"</strong> — select your reader in the USB picker</div>
     <div class="step"><span class="num">3</span> Browser writes PiBridge boot image <strong>directly to raw blocks</strong> (like dd)</div>
     <div class="step"><span class="num">4</span> Put SD card in Pi, power on — connects via BLE</div>
 
     <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
-      Uses WebUSB + SCSI WRITE10 to write a bootable image. <strong>Chrome/Edge on Linux.</strong>
-      On Windows, <a href="https://zadig.akeo.ie/" target="_blank" style="color:#e94560">install WinUSB via Zadig</a> for the reader first.
+      Uses WebUSB to write a bootable disk image directly to your SD card. <strong>Chrome or Edge required.</strong>
     </p>
 
     <div id="sdLog" class="log"><span class="dim">Insert SD card reader, then click Flash.</span></div>
@@ -173,9 +172,7 @@ const $=id=>document.getElementById(id);
 //   Data phase (IN or OUT based on flags)
 //   CSW (13 B): signature + tag + residue + status
 //
-// Linux: Chrome detaches kernel driver automatically.
-// Windows: User must replace driver with WinUSB via Zadig.
-// macOS: untested, likely needs driver work.
+// Chrome/Edge on modern OS handles driver access automatically.
 
 let sdLog = $('sdLog');
 
@@ -248,10 +245,9 @@ $('sdBtn').onclick = async () => {
     try {
       await dev.claimInterface(iface.interfaceNumber);
     } catch(e) {
-      sdLogMsg('r', '❌ Cannot claim interface. The OS driver is blocking.');
-      sdLogMsg('dim', '   Linux: Chrome should auto-detach driver.');
-      sdLogMsg('dim', '   On Windows: use Zadig to replace driver with WinUSB.');
-      sdLogMsg('dim', '   Then unplug/replug the reader and try again.');
+      sdLogMsg('r', '❌ Cannot access SD card reader: ' + e.message);
+      sdLogMsg('dim', '   Try unplugging and reconnecting the reader, then click Flash again.');
+      sdLogMsg('dim', '   Close other programs that might be using the SD card.');
       return;
     }
 
