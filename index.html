@@ -3,32 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PiBridge — One Click</title>
+<title>PiBridge — One Click Flash + Audio Reactive</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d1a;color:#e0e0e0;min-height:100vh}
 header{background:#16162a;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #222;flex-wrap:wrap}
-header h1{font-size:1.2rem;font-weight:600}
+header h1{font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
 .tag{font-size:.6rem;background:#e94560;padding:.15rem .5rem;border-radius:1rem;opacity:.8}
 .stat{font-size:.75rem;padding:.2rem .75rem;border-radius:1rem;font-weight:500}
 .stat.ok{background:#2ecc71;color:#fff}.stat.err{background:#e74c3c;color:#fff}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:1rem;padding:1rem}
-.card{background:#16162a;border-radius:10px;padding:1rem}
-.card h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;font-weight:600}
-.row{display:flex;gap:.5rem;align-items:center;margin:.35rem 0;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:1rem;padding:1rem}
+.card{background:#16162a;border-radius:12px;padding:1rem 1.2rem}
+.card h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+.row{display:flex;gap:.5rem;align-items:center;margin:.4rem 0;flex-wrap:wrap}
+.row label{font-size:.76rem;color:#6c6c8a;min-width:3.5rem}
 input,select,button{font-family:inherit;font-size:.8rem}
-button{background:#e94560;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;transition:opacity .15s;white-space:nowrap}
-button:hover{opacity:.85}
+input[type=number]{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:6px;width:5rem}
+select{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:6px;cursor:pointer}
+input[type=range]{-webkit-appearance:none;height:4px;background:#333;border-radius:2px;width:5rem;flex-shrink:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#e94560;border-radius:50%;cursor:pointer}
+input[type=color]{width:34px;height:34px;border:none;border-radius:50%;cursor:pointer;background:none;padding:0;flex-shrink:0}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:2px solid #333;border-radius:50%}
+button{background:#e94560;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0}
+button:hover{opacity:.85;transform:translateY(-1px)}
 button.green{background:#2ecc71}
 button.sec{background:#2c3e50}
-button:disabled{opacity:.4;cursor:not-allowed}
-.log{border:1px solid #222;border-radius:6px;padding:.5rem;font-family:"SF Mono",monospace;font-size:.7rem;max-height:250px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0;background:#0a0a15}
+button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.val{font-family:"SF Mono",monospace;font-size:.75rem;color:#6c6c8a;min-width:2.5rem;text-align:right}
+.log{background:#0a0a15;border:1px solid #222;border-radius:8px;padding:.5rem .6rem;font-family:"SF Mono",monospace;font-size:.68rem;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0}
 .log .g{color:#2ecc71}.log .r{color:#e74c3c}.log .b{color:#e94560}.log .dim{color:#6c6c8a}
-.progress{width:100%;height:6px;background:#0d0d1a;border-radius:3px;overflow:hidden;margin:.4rem 0}
-.progress .bar{height:100%;background:#e94560;border-radius:3px;transition:width .3s;width:0%}
-.bdg{background:#2c3e50;padding:.1rem .45rem;border-radius:3px;font-size:.65rem}
-canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:block;margin:.4rem 0}
-.preview{display:flex;gap:2px;margin-top:.5rem;height:20px;border-radius:4px;overflow:hidden}
+.progress{width:100%;height:5px;background:#0d0d1a;border-radius:3px;overflow:hidden;margin:.4rem 0}
+.progress .bar{height:100%;background:linear-gradient(90deg,#e94560,#ff6b81);border-radius:3px;transition:width .3s;width:0%}
+canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:8px;display:block;margin:.5rem 0}
+.preview{display:flex;gap:2px;border-radius:4px;overflow:hidden;height:22px;margin-top:.4rem}
+.bdg{background:#2c3e50;padding:.15rem .5rem;border-radius:4px;font-size:.63rem;white-space:nowrap}
+hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -36,74 +46,91 @@ canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:b
 
 <header>
   <h1>🔧 PiBridge</h1>
-  <span class="tag">One Click Flash</span>
+  <span class="tag">One Click</span>
   <span id="cs" class="stat err">Disconnected</span>
   <button id="cb">🔗 Connect BLE</button>
 </header>
 
 <div class="grid">
 
-  <!-- ONE CLICK FLASH -->
+  <!-- ═══════ ONE-CLICK FLASH ═══════ -->
   <div class="card">
-    <h2>⚡ Flash Pi Zero W — One Click</h2>
-    <p style="font-size:.78rem;color:#6c6c8a;margin-bottom:.5rem">
-      Plug Pi into USB (side port) with any SD card inserted, power on. Then click once.
+    <h2>⚡ Flash Pi</h2>
+    <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.4rem">
+      Connect Pi Zero W to USB <strong>(side port)</strong>, power on. Then click once. No SD card needed — Pi runs from RAM.
     </p>
-    <div id="fl" class="log"><span class="dim">Ready. Connect Pi via USB and power on.</span></div>
+    <div id="fl" class="log"><span class="dim">Ready. Plug in Pi and power it on.</span></div>
     <div class="progress"><div class="bar" id="fb"></div></div>
-    <div class="row">
-      <button id="goBtn" class="green">🚀 Flash Pi Now</button>
-      <button id="bleBtn" disabled class="sec">🔗 Connect via BLE</button>
+    <div class="row" style="gap:.6rem">
+      <button id="goBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">🚀 Flash Pi Now</button>
+      <button id="bleBtn" disabled class="sec" style="flex:0">🔗 BLE</button>
     </div>
-    <div id="piStatus" style="font-size:.75rem;color:#6c6c8a;margin-top:.3rem"></div>
+    <div id="piStatus" style="font-size:.72rem;color:#6c6c8a;margin-top:.3rem"></div>
   </div>
 
-  <!-- AUDIO REACTIVE -->
+  <!-- ═══════ MUSIC REACTIVE ═══════ -->
   <div class="card">
-    <h2>🎵 Music Reactive <span style="font-size:.6rem;color:#6c6c8a;font-weight:400">works now</span></h2>
+    <h2>🎵 Music Reactive <span style="font-size:.58rem;color:#888;font-weight:400">works now</span></h2>
     <div class="row">
-      <button id="audioBtn">🎤 Start Mic</button>
+      <button id="audioBtn" class="green" style="flex:1">🎤 Start Microphone</button>
     </div>
     <canvas class="vis" id="av"></canvas>
-    <div class="srow">
+    <div class="row" style="gap:.6rem;justify-content:center">
       <span class="bdg" style="background:#e74c3c">Bass <span id="bv">0</span></span>
       <span class="bdg" style="background:#2ecc71">Mid <span id="mv">0</span></span>
       <span class="bdg" style="background:#3498db">Treble <span id="tv">0</span></span>
-      <span class="bdg">BPM <span id="bpmv">—</span></span>
-      <span id="btb" class="bdg">⚡</span>
+      <span class="bdg" style="background:#9b59b6">BPM <span id="bpmv">—</span></span>
+      <span id="btb" class="bdg" style="background:#555">⚡</span>
     </div>
-  </div>
-
-  <!-- LEDS + GPIO -->
-  <div class="card">
-    <h2>🌈 LEDs</h2>
-    <div class="row">
+    <div class="row" style="margin-top:.5rem">
       <label>Pattern</label>
       <select id="ps" style="flex:1">
-        <option value="1">Solid</option><option value="2">Rainbow</option>
-        <option value="3">Breathe</option><option value="4">Theater</option>
-        <option value="5" selected>🎵 Audio</option>
+        <option value="1">Solid Color</option>
+        <option value="2">Rainbow</option>
+        <option value="3">Breathe</option>
+        <option value="4">Theater Chase</option>
+        <option value="5" selected>🎵 Audio Reactive</option>
       </select>
       <input type="color" id="pc" value="#ff0044">
     </div>
     <div class="row">
-      <button id="startBtn">▶ Start</button>
+      <button id="startBtn" style="flex:1">▶ Start Preview</button>
       <button class="sec" id="stopBtn">■ Stop</button>
+      <label>Speed</label>
+      <input type="range" id="pspd" min="1" max="255" value="80" style="width:3.5rem">
+      <span id="pspdv" class="val">80</span>
+    </div>
+    <div class="row">
       <label>Bright</label>
-      <input type="range" id="pb" min="0" max="255" value="128" style="width:4rem">
+      <input type="range" id="pb" min="0" max="255" value="128" style="flex:1;max-width:6rem">
+      <label style="min-width:auto">LEDs</label>
+      <input type="number" id="ledc" value="60" min="1" max="500" style="width:3.5rem">
+      <button class="sec sm" id="sendBtn">Send to Pi</button>
     </div>
     <div class="preview" id="pv"></div>
-    <hr style="border-color:#222;margin:.5rem 0">
-    <h2 style="margin-top:0">⚡ GPIO</h2>
+  </div>
+
+  <!-- ═══════ GPIO ═══════ -->
+  <div class="card">
+    <h2>⚡ GPIO</h2>
     <div class="row">
-      <label>Pin</label><input type="number" id="gp" value="17" min="2" max="27" style="width:4rem">
-      <button id="hi">HIGH</button>
-      <button id="lo">LOW</button>
+      <label>Pin</label>
+      <input type="number" id="gp" value="17" min="2" max="27" style="width:4rem">
+      <button id="hi" class="green" style="min-width:4rem">HIGH</button>
+      <button id="lo" style="min-width:4rem">LOW</button>
       <button class="sec" id="tog">Toggle</button>
+    </div>
+    <div class="row">
       <label>PWM</label>
-      <input type="range" id="pwm" min="0" max="100" value="0" style="width:4rem">
-      <span id="pwmV">0%</span>
-      <button class="sm sec" id="pwmBtn">Set</button>
+      <input type="range" id="pwm" min="0" max="100" value="0" style="width:6rem">
+      <span id="pwmV" class="val" style="min-width:auto">0%</span>
+      <button class="sec sm" id="pwmBtn">Set PWM</button>
+    </div>
+    <div class="row">
+      <label>Servo</label>
+      <input type="range" id="sv" min="0" max="180" value="90" style="width:6rem">
+      <span id="svV" class="val" style="min-width:auto">90°</span>
+      <button class="sec sm" id="svBtn">Set</button>
     </div>
   </div>
 
@@ -115,27 +142,22 @@ canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:b
 const $=id=>document.getElementById(id);
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. ONE-CLICK FLASH
+// 1. ONE-CLICK FLASH — WebUSB boot
 // ═══════════════════════════════════════════════════════════════════════
 
 const RPI_VID = 0x1d50;
-const RPI_PID_BOOT = 0x6042;  // Pi Zero W boot mode
-let piDev = null;
-let fl = $('fl');
-let isFlashing = false;
+let piDev = null, fl = $('fl'), isFlashing = false;
 
 function log(cls, msg) {
   fl.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
   fl.scrollTop = fl.scrollHeight;
 }
 function bar(pct) { $('fb').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-async function fetchBinary(name) {
-  // Try fetching from the same origin, with fallback to raw github
+async function fetchBin(name) {
   let r = await fetch(name);
-  if (!r.ok) throw new Error('Failed to fetch ' + name);
+  if (!r.ok) throw new Error('Failed to fetch ' + name + ' (' + r.status + ')');
   return new Uint8Array(await r.arrayBuffer());
 }
 
@@ -143,120 +165,103 @@ $('goBtn').onclick = async () => {
   if (isFlashing) return;
   isFlashing = true;
   $('goBtn').disabled = true;
-  $('goBtn').textContent = '⏳ Flashing...';
+  $('goBtn').textContent = '⏳ Working...';
   fl.innerHTML = '';
   bar(0);
 
   try {
-    // === STAGE 0: Enumeration ===
-    log('dim', '🔍 Step 0: Finding Pi in boot mode...');
+    log('dim', '🔍 Looking for Pi in boot mode...');
     let devs = await navigator.usb.getDevices();
     let dev = devs.find(d => d.vendorId === RPI_VID);
-
-    if (!dev) {
-      dev = await navigator.usb.requestDevice({
-        filters: [{ vendorId: RPI_VID }]
-      });
-    }
+    if (!dev) dev = await navigator.usb.requestDevice({ filters: [{ vendorId: RPI_VID }] });
     if (!dev) { log('r', 'No Pi selected'); throw new Error('abort'); }
     piDev = dev;
-    log('g', '✅ Found: ' + (dev.productName || 'Pi Zero W'));
+    log('g', '✅ Found Pi Zero W in boot mode');
 
-    // Open and claim
     await dev.open();
     let cfg = dev.configurations[0];
     await dev.selectConfiguration(cfg.configurationValue);
-    let iface = cfg.interfaces[0];
-    await dev.claimInterface(iface.interfaceNumber);
-    log('g', '✅ Interface claimed');
+    await dev.claimInterface(cfg.interfaces[0].interfaceNumber);
+    log('g', '✅ USB interface claimed');
     bar(5);
 
-    // === STAGE 1: Send bootcode.bin ===
-    log('b', '📥 Step 1: Sending bootcode.bin...');
-    // Send start signal (0x01) first
+    // Stage 1: bootcode.bin
+    log('b', '📥 Sending bootcode.bin...');
     await dev.transferOut(1, new Uint8Array([0x01]));
-    await sleep(200);
+    await sleep(300);
 
-    let bootcode = await fetchBinary('bootcode.bin');
-    log('dim', '   bootcode.bin: ' + bootcode.length + ' bytes');
-    for (let i = 0; i < bootcode.length; i += 512) {
-      await dev.transferOut(1, bootcode.slice(i, Math.min(i + 512, bootcode.length)));
-      bar(5 + (i / bootcode.length) * 15);
+    let bc = await fetchBin('bootcode.bin');
+    for (let i = 0; i < bc.length; i += 512) {
+      await dev.transferOut(1, bc.slice(i, Math.min(i + 512, bc.length)));
+      bar(5 + (i / bc.length) * 10);
     }
-    log('g', '✅ bootcode.bin sent! Pi will reset...');
-    bar(20);
-
-    // Close and wait for re-enumeration
+    log('g', '✅ bootcode.bin sent — Pi will reset');
+    bar(15);
     try { dev.close(); } catch(e) {}
-    log('dim', '⏳ Waiting for Pi to re-appear (5s)...');
-    await sleep(5000);
 
-    // === STAGE 2: Re-detect and send boot files ===
-    log('b', '📥 Step 2: Sending boot files...');
+    log('dim', '⏳ Waiting for Pi to re-appear (8s)...');
+    await sleep(8000);
 
-    // Re-detect
+    // Stage 2: rest of boot files
+    log('b', '📥 Loading boot files...');
     devs = await navigator.usb.getDevices();
     dev = devs.find(d => d.vendorId === RPI_VID);
     if (!dev) {
-      log('r', 'Pi did not re-appear. Try power-cycling.');
-      log('dim', '   After bootcode.bin, Pi should re-appear as a new USB device.');
-      log('dim', '   Click "Flash Pi Now" again when it reappears.');
+      log('r', 'Pi not found after reset. Power-cycle and try again.');
       throw new Error('abort');
     }
     piDev = dev;
-    log('g', '✅ Re-detected: ' + (dev.productName || 'Pi'));
     await dev.open();
     cfg = dev.configurations[0];
     await dev.selectConfiguration(cfg.configurationValue);
-    iface = cfg.interfaces[0];
-    await dev.claimInterface(iface.interfaceNumber);
-    log('g', '✅ Interface claimed for stage 2');
+    await dev.claimInterface(cfg.interfaces[0].interfaceNumber);
+    log('g', '✅ Reconnected — sending boot files');
 
-    // Send all boot files in order
     const files = [
-      { name: 'start.elf', label: 'GPU Firmware' },
-      { name: 'config.txt', label: 'Config' },
-      { name: 'cmdline.txt', label: 'Cmdline' },
-      { name: 'kernel.img', label: 'Kernel' },
-      { name: 'initramfs.gz', label: 'Initramfs' },
+      ['start.elf', 'GPU firmware'],
+      ['config.txt', 'Boot config'],
+      ['cmdline.txt', 'Kernel cmdline'],
+      ['kernel.img', 'Linux kernel'],
+      ['initramfs.gz', 'Initramfs (OS)']
     ];
 
-    for (const [idx, file] of files.entries()) {
-      log('dim', `   Sending ${file.name} (${file.label})...`);
-      const data = await fetchBinary(file.name);
+    for (const [idx, [name, label]]) of files.entries()) {
+      log('dim', `   [${idx+1}/${files.length}] ${label} (${name})...`);
+      const data = await fetchBin(name);
       for (let i = 0; i < data.length; i += 512) {
         await dev.transferOut(1, data.slice(i, Math.min(i + 512, data.length)));
       }
-      bar(20 + ((idx + 1) / files.length) * 60);
-      log('g', `   ✅ ${file.name} sent`);
+      bar(15 + ((idx + 1) / files.length) * 65);
+      log('g', `   ✓ ${name}`);
     }
 
-    bar(80);
-
-    // Close connection (Pi will boot on its own)
     try { dev.close(); } catch(e) {}
-    log('b', '🎉 All files sent! Pi is booting...');
-    log('dim', '⏳ Wait ~30 seconds for Pi to boot and advertise as "PiBridge"');
-    log('dim', '   Then click "Connect via BLE" below.');
     bar(100);
+    log('b', '🎉 All files sent! Pi is booting...');
+    log('dim', 'Pi will boot into initramfs, start Bluetooth,');
+    log('dim', 'and advertise as "PiBridge" in about 25 seconds.');
 
     $('bleBtn').disabled = false;
     $('bleBtn').classList.add('green');
-    $('piStatus').textContent = '✅ Pi is booting!';
-    isFlashing = false;
+    $('bleBtn').textContent = '🔗 Connect via BLE';
+    $('piStatus').textContent = '✅ Booting... click BLE in ~25s';
+    $('goBtn').disabled = true;
+    $('goBtn').textContent = '✅ Flashed!';
 
   } catch(e) {
     if (e.message !== 'abort') {
       log('r', '❌ ' + e.message);
-      log('dim', '   Tips:');
-      log('dim', '   • Use a good USB cable (data, not charge-only)');
-      log('dim', '   • Power cycle the Pi before retrying');
-      log('dim', '   • Make sure Chrome is up to date');
+      log('dim', 'Tips:');
+      log('dim', '• Use a DATA USB cable, not charge-only');
+      log('dim', '• Power cycle Pi (unplug/replug USB)');
+      log('dim', '• Use Chrome or Edge browser');
     }
     $('goBtn').disabled = false;
     $('goBtn').textContent = '🚀 Flash Pi Now';
     isFlashing = false;
     bar(0);
+  } finally {
+    isFlashing = false;
   }
 };
 
@@ -264,31 +269,35 @@ $('goBtn').onclick = async () => {
 // 2. BLE CONNECTION
 // ═══════════════════════════════════════════════════════════════════════
 
-const BLE_SVC = '4d697272-6f72-0000-0000-000000000000';
-const BLE_CH = {
+const SVC = '4d697272-6f72-0000-0000-000000000000';
+const CH = {
   do:'4d697272-6f72-0002-0000-000000000000',
   wf:'4d697272-6f72-0007-0000-000000000000',
   wm:'4d697272-6f72-0008-0000-000000000000',
   au:'4d697272-6f72-0009-0000-000000000000',
+  pw:'4d697272-6f72-0004-0000-000000000000',
+  sv:'4d697272-6f72-0005-0000-000000000000',
 };
-let bd, bs, bsv, bch = {}, bcon = false;
+
+let bd, bs, bsvc, bch = {}, bcon = false;
 
 $('bleBtn').onclick = async () => {
   try {
     bd = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'PiBridge' }],
-      optionalServices: [BLE_SVC]
+      optionalServices: [SVC]
     });
     bs = await bd.gatt.connect();
-    bsv = await bs.getPrimaryService(BLE_SVC);
-    for (const [n, u] of Object.entries(BLE_CH))
-      bch[n] = await bsv.getCharacteristic(u);
+    bsvc = await bs.getPrimaryService(SVC);
+    for (const [n, u] of Object.entries(CH))
+      bch[n] = await bsvc.getCharacteristic(u);
     bcon = true;
     $('cs').textContent = 'Connected';
     $('cs').className = 'stat ok';
     $('cb').textContent = '❌ Disconnect';
     $('bleBtn').textContent = '✅ Connected!';
     $('bleBtn').disabled = true;
+    $('bleBtn').classList.remove('green');
     bd.addEventListener('gattserverdisconnected', () => {
       bcon = false; $('cs').textContent = 'Disconnected';
       $('cs').className = 'stat err'; $('cb').textContent = '🔗 Connect BLE';
@@ -302,78 +311,188 @@ $('bleBtn').onclick = async () => {
   }
 };
 
-$('cb').onclick = async () => {
-  if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); return; }
-  $('bleBtn').click();
-};
+$('cb').onclick = () => { if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); } else $('bleBtn').click(); };
 
-function wc(n, d) { if(bch[n]) try{bch[n].writeValue(d)}catch{} }
+function wc(n, d) { if(bch[n]) try{bch[n].writeValue(d)}catch(e){} }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3. AUDIO REACTIVE
+// 3. AUDIO REACTIVE ENGINE
 // ═══════════════════════════════════════════════════════════════════════
 
 let actx, an, src, ad, aOn = false;
-let aB=0,aM=0,aT=0,aBpm=0,aBeat=false, aHist=[], aLast=0, aFid=null, patRun=false, patFid=null;
+let aB=0,aM=0,aT=0,aBpm=0,aBeat=false, aHist=[], aLast=0, aFid=null;
 
 $('audioBtn').onclick = async () => {
-  if (aOn) { aOn=false; if(actx)actx.close(); $('audioBtn').textContent='🎤 Start Mic'; if(aFid){cancelAnimationFrame(aFid);aFid=null} return; }
+  if (aOn) { aOn=false; if(actx)actx.close(); $('audioBtn').textContent='🎤 Start Microphone'; if(aFid){cancelAnimationFrame(aFid);aFid=null} return; }
   try {
-    const s = await navigator.mediaDevices.getUserMedia({audio:true});
-    actx = new AudioContext(); an = actx.createAnalyser(); an.fftSize = 256;
+    const s = await navigator.mediaDevices.getUserMedia({audio:true,echoCancellation:false});
+    actx = new AudioContext(); an = actx.createAnalyser(); an.fftSize = 128;
     src = actx.createMediaStreamSource(s); src.connect(an);
     ad = new Uint8Array(an.frequencyBinCount); aOn = true;
     $('audioBtn').textContent = '⏹ Stop Mic';
     (function loop() {
       if (!aOn) { aFid=null; return; }
       an.getByteFrequencyData(ad);
-      aB=avg(0,4); aM=avg(4,12); aT=avg(12,32);
-      const tot=aB+aM+aT; aHist.push(tot); if(aHist.length>30)aHist.shift();
-      const ae=aHist.reduce((a,b)=>a+b,0)/aHist.length;
-      aBeat=aHist.length>10&&tot>ae*1.3;
-      const n=performance.now(); if(aBeat){const dt=n-aLast;if(dt>200&&dt<2000)aBpm=Math.round(60000/dt);aLast=n;}
-      $('bv').textContent=Math.round(aB); $('mv').textContent=Math.round(aM); $('tv').textContent=Math.round(aT);
-      $('bpmv').textContent=aBpm||'—';
-      const be=$('btb'); if(aBeat){be.style.background='#e94560';be.textContent='⚡ BEAT';setTimeout(()=>{be.style.background='#2c3e50';be.textContent='⚡';},150)}
-      if(bcon&&bch.au){const b=new Uint8Array(6);b[0]=Math.round(aB);b[1]=Math.round(aM);b[2]=Math.round(aT);b[3]=aBpm&0xFF;b[4]=(aBpm>>8)&0xFF;b[5]=aBeat?1:0;wc('au',b)}
-      drawV(); aFid=requestAnimationFrame(loop);
+      aB = avg(0,2); aM = avg(2,8); aT = avg(8, ad.length-1);
+      const tot = aB + aM + aT;
+      aHist.push(tot); if (aHist.length > 43) aHist.shift();
+      const avgE = aHist.reduce((a,b)=>a+b,0) / aHist.length;
+      aBeat = aHist.length > 15 && tot > avgE * 1.4;
+      const n = performance.now();
+      if (aBeat) { const dt = n - aLast; if (dt > 180 && dt < 2500) aBpm = Math.round(60000/dt); aLast = n; }
+      $('bv').textContent = Math.round(aB);
+      $('mv').textContent = Math.round(aM);
+      $('tv').textContent = Math.round(aT);
+      $('bpmv').textContent = aBpm || '—';
+      const be = $('btb');
+      if (aBeat) { be.style.background = '#e94560'; be.textContent = '⚡ BEAT'; setTimeout(()=>{be.style.background='#555';be.textContent='⚡';},120); }
+      if (bcon && bch.au) {
+        const b = new Uint8Array(6);
+        b[0] = Math.round(aB); b[1] = Math.round(aM); b[2] = Math.round(aT);
+        b[3] = aBpm & 0xFF; b[4] = (aBpm >> 8) & 0xFF; b[5] = aBeat ? 1 : 0;
+        wc('au', b);
+      }
+      drawVis();
+      aFid = requestAnimationFrame(loop);
     })();
-  } catch(e) { $('audioBtn').textContent='❌ '+e.message; }
+  } catch(e) { $('audioBtn').textContent = '❌ ' + e.message; }
 };
-function avg(s,e){let su=0;for(let i=s;i<e;i++)su+=ad[i];return su/(e-s)}
-function drawV(){const c=$('av');if(!c||!ad)return;const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);const bw=w/ad.length;for(let i=0;i<ad.length;i++){const bh=(ad[i]/255)*h;ctx.fillStyle='hsl('+((i*3)%360)+',80%,60%)';ctx.fillRect(i*bw,h-bh,Math.max(1,bw-1),bh)}}
+
+function avg(s, e) { let su = 0; for (let i = s; i <= e; i++) su += ad[i]; return su / (e - s + 1); }
+
+function drawVis() {
+  const c = $('av'); if (!c || !ad) return;
+  const ctx = c.getContext('2d'), w = c.width, h = c.height;
+  ctx.clearRect(0, 0, w, h);
+  const bw = w / ad.length;
+  for (let i = 0; i < ad.length; i++) {
+    const bh = (ad[i] / 255) * h;
+    ctx.fillStyle = 'hsl(' + ((i * 4 + 180) % 360) + ', 80%, 60%)';
+    ctx.fillRect(i * bw, h - bh, Math.max(1, bw - 1), bh);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
-// 4. LED PATTERNS + GPIO
+// 4. LED PATTERNS
 // ═══════════════════════════════════════════════════════════════════════
+
+let patRun = false, patFid = null, patTick = 0;
+
+$('pspd').oninput = () => $('pspdv').textContent = $('pspd').value;
+$('sv').oninput = () => $('svV').textContent = $('sv').value + '°';
 
 $('startBtn').onclick = () => {
-  patRun = true;
-  const c=$('pc').value; const r=parseInt(c.slice(1,3),16), g=parseInt(c.slice(3,5),16), b=parseInt(c.slice(5,7),16);
-  const bright=parseInt($('pb').value), count=60;
-  if(!patFid){(function step(){if(!patRun){patFid=null;return}const id=parseInt($('ps').value);const f=genF(id,count,{r,g,b,bright,as:aOn?{bass:aB,mid:aM,treble:aT,beat:aBeat}:null});if(bcon&&bch.wf)wc('wf',f);renderP(f);patFid=requestAnimationFrame(step)})()}
+  patRun = true; patTick = 0;
+  const c = $('pc').value, r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+  const bright = parseInt($('pb').value), spd = parseInt($('pspd').value), count = parseInt($('ledc').value);
+  if (!patFid) (function step() {
+    if (!patRun) { patFid = null; return; }
+    patTick++;
+    const id = parseInt($('ps').value);
+    const f = genF(id, count, {r,g,b,bright,speed:spd, as:aOn?{bass:aB,mid:aM,treble:aT,beat:aBeat}:null}, patTick);
+    if (bcon && bch.wf) wc('wf', f);
+    renderP(f);
+    patFid = requestAnimationFrame(step);
+  })();
 };
-$('stopBtn').onclick = () => { patRun=false; if(bcon)wc('wm',new Uint8Array([18,0,0,0,0,0])); };
 
-function genF(id,c,p) {
-  const f=new Uint8Array(c*3); const{r=255,g=0,b=255,bright=128,as}=p; const br=bright/255;
-  if(id===1){for(let i=0;i<c;i++){f[i*3]=Math.round(r*br);f[i*3+1]=Math.round(g*br);f[i*3+2]=Math.round(b*br)}return f}
-  if(id===2){for(let i=0;i<c;i++){const h=i/c;const[cr,cg,cb]=hsv(h,1,1);f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br)}return f}
-  if(id===3){const b2=Math.sin(Date.now()*0.003)*0.5+0.5;for(let i=0;i<c;i++){f[i*3]=Math.round(r*br*b2);f[i*3+1]=Math.round(g*br*b2);f[i*3+2]=Math.round(b*br*b2)}return f}
-  if(id===4){for(let i=0;i<c;i++){if(i%3===Math.floor(Date.now()/200)%3){f[i*3]=Math.round(r*br);f[i*3+1]=Math.round(g*br);f[i*3+2]=Math.round(b*br)}}return f}
-  if(id===5&&as){const{bass,mid,treble,beat}=as;const bs=bass/255,ms=mid/255,ts=treble/255;for(let i=0;i<c;i++){const p=i/c;if(p<1/3){f[i*3]=Math.round(bs*255*br)}else if(p<2/3){f[i*3+1]=Math.round(ms*255*br)}else{f[i*3+2]=Math.round(ts*255*br)}}if(beat)for(let i=0;i<c;i++){f[i*3]=Math.min(255,f[i*3]+150);f[i*3+1]=Math.min(255,f[i*3+1]+150);f[i*3+2]=Math.min(255,f[i*3+2]+150)}return f}
-  f.fill(0);return f
+$('stopBtn').onclick = () => { patRun = false; };
+
+$('sendBtn').onclick = () => {
+  const id = parseInt($('ps').value);
+  const c = $('pc').value, r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+  const spd = parseInt($('pspd').value), count = parseInt($('ledc').value);
+  if (bcon && bch.wm) wc('wm', new Uint8Array([18, id, spd, r, g, b, count & 0xFF, (count >> 8) & 0xFF]));
+};
+
+function genF(id, c, p, tick) {
+  const f = new Uint8Array(c * 3);
+  const {r=255,g=255,b=255,bright=128,speed=80,as}=p;
+  const br = bright/255, s = speed/255;
+  if (id === 1) { for (let i=0;i<c;i++) f[i*3]=Math.round(r*br),f[i*3+1]=Math.round(g*br),f[i*3+2]=Math.round(b*br); return f; }
+  if (id === 2) { for (let i=0;i<c;i++) { const h=((i/c)+(tick*s*0.005))%1; const [cr,cg,cb]=hsv(h,1,1); f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br); } return f; }
+  if (id === 3) { const b2 = Math.sin(tick*s*0.04)*0.5+0.5; for (let i=0;i<c;i++) f[i*3]=Math.round(r*br*b2),f[i*3+1]=Math.round(g*br*b2),f[i*3+2]=Math.round(b*br*b2); return f; }
+  if (id === 4) { for (let i=0;i<c;i++) f[i*3]=Math.round(r*br*(i%3===tick%3?255:0)/255),f[i*3+1]=Math.round(g*br*(i%3===tick%3?255:0)/255),f[i*3+2]=Math.round(b*br*(i%3===tick%3?255:0)/255); return f; }
+  if (id === 5 && as) {
+    const {bass,mid,treble,beat}=as;
+    for (let i=0;i<c;i++) {
+      const pct = i/c;
+      const v = pct < 1/3 ? bass/255 : pct < 2/3 ? mid/255 : treble/255;
+      f[i*3] = Math.round((r/255)*v*255*br);
+      f[i*3+1] = Math.round((g/255)*v*255*br);
+      f[i*3+2] = Math.round((b/255)*v*255*br);
+    }
+    if (beat) for (let i=0;i<c;i++) f[i*3]=Math.min(255,f[i*3]+100),f[i*3+1]=Math.min(255,f[i*3+1]+100),f[i*3+2]=Math.min(255,f[i*3+2]+100);
+    return f;
+  }
+  for (let i=0;i<c;i++) f[i*3]=Math.round(r*br),f[i*3+1]=Math.round(g*br),f[i*3+2]=Math.round(b*br);
+  return f;
 }
-function hsv(h,s,v){const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);return[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i%6].map(x=>Math.round(x*255))}
-function renderP(f){const d=$('pv');d.innerHTML='';const st=Math.max(1,Math.floor(f.length/3/60));for(let i=0;i<Math.min(60,f.length/3);i++){const idx=i*st*3;const e=document.createElement('div');e.style.cssText='flex:1;height:100%;background:rgb('+f[idx]+','+f[idx+1]+','+f[idx+2]+')';d.appendChild(e)}}
 
-$('hi').onclick=()=>sg(1);$('lo').onclick=()=>sg(0);
-function sg(v){if(!bcon)return;const p=parseInt($('gp').value),m=1<<p,vals=v?m:0;const b=new ArrayBuffer(8);const dv=new DataView(b);dv.setUint32(0,m>>>0,true);dv.setUint32(4,vals>>>0,true);wc('do',b)}
-$('pwm').oninput=()=>$('pwmV').textContent=$('pwm').value+'%';
-$('pwmBtn').onclick=()=>{if(!bcon)return;const p=parseInt($('gp').value),d=parseInt($('pwm').value);const b=new Uint8Array(5);b[0]=p;b[1]=d;wc('pwm',b)}
+function hsv(h,s,v) {
+  const i=Math.floor(h*6), f=h*6-i, p=v*(1-s), q=v*(1-f*s), t=v*(1-(1-f)*s);
+  const map = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]];
+  return map[i%6].map(x=>Math.round(x*255));
+}
 
-console.log('🔧 PiBridge — One Click Flash');
-console.log('https://sylchi.github.io/pibridge/');
+function renderP(f) {
+  const d = $('pv'); d.innerHTML = '';
+  const step = Math.max(1, Math.floor(f.length / 3 / 60));
+  for (let i = 0; i < Math.min(60, f.length/3); i++) {
+    const idx = i * step * 3;
+    const e = document.createElement('div');
+    e.style.cssText = 'flex:1;height:100%;background:rgb('+f[idx]+','+f[idx+1]+','+f[idx+2]+')';
+    d.appendChild(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 5. GPIO
+// ═══════════════════════════════════════════════════════════════════════
+
+let gpioState = {};  // track pin states for toggle
+
+$('hi').onclick = () => sg(1);
+$('lo').onclick = () => sg(0);
+$('tog').onclick = () => {
+  if (!bcon) return;
+  const pin = parseInt($('gp').value);
+  const current = gpioState[pin] || 0;
+  sg(current ? 0 : 1);
+};
+
+function sg(v) {
+  if (!bcon) return;
+  const pin = parseInt($('gp').value);
+  gpioState[pin] = v;
+  const mask = 1 << pin, vals = v ? mask : 0;
+  const b = new ArrayBuffer(8);
+  const dv = new DataView(b);
+  dv.setUint32(0, mask >>> 0, true);
+  dv.setUint32(4, vals >>> 0, true);
+  wc('do', b);
+}
+
+$('pwm').oninput = () => $('pwmV').textContent = $('pwm').value + '%';
+$('pwmBtn').onclick = () => {
+  if (!bcon) return;
+  const p = parseInt($('gp').value), d = parseInt($('pwm').value);
+  const b = new Uint8Array(5);
+  b[0] = p; b[1] = d; b[2] = 0xE8; b[3] = 0x03;  // freq=1000
+  wc('pw', b);
+};
+
+$('svBtn').onclick = () => {
+  if (!bcon) return;
+  const p = parseInt($('gp').value), angle = parseInt($('sv').value);
+  const pulse = 500 + (angle / 180) * 2500;  // 500-3000us
+  const b = new Uint8Array(5);
+  b[0] = p; b[1] = 0; b[2] = pulse & 0xFF; b[3] = (pulse >> 8) & 0xFF;
+  wc('sv', b);
+};
+
+console.log('🔧 PiBridge — One Click Flash + Audio Reactive');
+console.log('📖 https://sylchi.github.io/pibridge/');
 })();
 </script>
 </body>
