@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PiBridge</title>
+<title>PiBridge — One Click</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d1a;color:#e0e0e0;min-height:100vh}
@@ -11,35 +11,23 @@ header{background:#16162a;padding:.75rem 1.5rem;display:flex;align-items:center;
 header h1{font-size:1.2rem;font-weight:600}
 .tag{font-size:.6rem;background:#e94560;padding:.15rem .5rem;border-radius:1rem;opacity:.8}
 .stat{font-size:.75rem;padding:.2rem .75rem;border-radius:1rem;font-weight:500}
-.stat.ok{background:#2ecc71;color:#fff}.stat.err{background:#e74c3c;color:#fff}.stat.warn{background:#f39c12;color:#000}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem;padding:1rem}
+.stat.ok{background:#2ecc71;color:#fff}.stat.err{background:#e74c3c;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:1rem;padding:1rem}
 .card{background:#16162a;border-radius:10px;padding:1rem}
-.card h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem;font-weight:600}
+.card h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;font-weight:600}
 .row{display:flex;gap:.5rem;align-items:center;margin:.35rem 0;flex-wrap:wrap}
-.row label{font-size:.78rem;color:#6c6c8a;min-width:3rem}
 input,select,button{font-family:inherit;font-size:.8rem}
-input[type=number]{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:5px;width:5rem}
-select{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:5px;cursor:pointer}
-select:focus,input:focus{outline:none;border-color:#e94560}
-input[type=range]{-webkit-appearance:none;height:4px;background:#333;border-radius:2px;width:5rem}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#e94560;border-radius:50%;cursor:pointer}
-input[type=color]{width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;background:none;padding:0}
-input[type=color]::-webkit-color-swatch-wrapper{padding:0}
-input[type=color]::-webkit-color-swatch{border:2px solid #333;border-radius:50%}
 button{background:#e94560;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;transition:opacity .15s;white-space:nowrap}
 button:hover{opacity:.85}
-button.sm{padding:.3rem .6rem;font-size:.7rem}
-button.sec{background:#2c3e50}
 button.green{background:#2ecc71}
+button.sec{background:#2c3e50}
 button:disabled{opacity:.4;cursor:not-allowed}
-.val{font-family:"SF Mono",monospace;font-size:.75rem;color:#6c6c8a;min-width:2.5rem;text-align:right}
-canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:block;margin:.4rem 0}
-.log{border:1px solid #222;border-radius:6px;padding:.5rem;font-family:"SF Mono",monospace;font-size:.7rem;max-height:200px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0;background:#0a0a15}
+.log{border:1px solid #222;border-radius:6px;padding:.5rem;font-family:"SF Mono",monospace;font-size:.7rem;max-height:250px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0;background:#0a0a15}
 .log .g{color:#2ecc71}.log .r{color:#e74c3c}.log .b{color:#e94560}.log .dim{color:#6c6c8a}
 .progress{width:100%;height:6px;background:#0d0d1a;border-radius:3px;overflow:hidden;margin:.4rem 0}
 .progress .bar{height:100%;background:#e94560;border-radius:3px;transition:width .3s;width:0%}
-.srow{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
 .bdg{background:#2c3e50;padding:.1rem .45rem;border-radius:3px;font-size:.65rem}
+canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:block;margin:.4rem 0}
 .preview{display:flex;gap:2px;margin-top:.5rem;height:20px;border-radius:4px;overflow:hidden}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
 </style>
@@ -48,54 +36,45 @@ canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:b
 
 <header>
   <h1>🔧 PiBridge</h1>
-  <span class="tag">Flash & Control</span>
+  <span class="tag">One Click Flash</span>
   <span id="cs" class="stat err">Disconnected</span>
   <button id="cb">🔗 Connect BLE</button>
 </header>
 
 <div class="grid">
 
-  <!-- FLASH -->
+  <!-- ONE CLICK FLASH -->
   <div class="card">
-    <h2>⚡ Flash Pi Zero W</h2>
+    <h2>⚡ Flash Pi Zero W — One Click</h2>
     <p style="font-size:.78rem;color:#6c6c8a;margin-bottom:.5rem">
-      Insert <strong>SD card</strong> in Pi. Connect Pi to PC via <strong>USB (side port)</strong>. Power on.
-      Then click Detect → Flash.
+      Plug Pi into USB (side port) with any SD card inserted, power on. Then click once.
     </p>
-    <div id="flashLog" class="log"><span class="dim">Waiting...</span></div>
-    <div class="progress"><div class="bar" id="flashBar"></div></div>
+    <div id="fl" class="log"><span class="dim">Ready. Connect Pi via USB and power on.</span></div>
+    <div class="progress"><div class="bar" id="fb"></div></div>
     <div class="row">
-      <button id="detectBtn" class="green">🔍 Detect Pi in boot mode</button>
-      <button id="flashBtn" disabled>📥 Send bootcode.bin</button>
-      <button id="sendElfBtn" disabled class="sec">📥 Send start.elf</button>
+      <button id="goBtn" class="green">🚀 Flash Pi Now</button>
+      <button id="bleBtn" disabled class="sec">🔗 Connect via BLE</button>
     </div>
-    <div id="piInfo" style="font-size:.75rem;color:#6c6c8a;margin-top:.3rem">No Pi detected</div>
-    <hr style="border-color:#222;margin:.7rem 0">
-    <div class="row">
-      <button class="sm sec" id="dlPackBtn">📦 Download files for SD card</button>
-    </div>
-    <p style="font-size:.7rem;color:#6c6c8a;margin-top:.3rem">
-      After flashing, Pi appears as USB drive. Extract the downloaded pack onto it. Eject, reboot Pi. Done.
-    </p>
+    <div id="piStatus" style="font-size:.75rem;color:#6c6c8a;margin-top:.3rem"></div>
   </div>
 
-  <!-- AUDIO -->
+  <!-- AUDIO REACTIVE -->
   <div class="card">
-    <h2>🎵 Music Reactive <span style="font-size:.6rem;color:#6c6c8a;font-weight:400">works now in browser</span></h2>
+    <h2>🎵 Music Reactive <span style="font-size:.6rem;color:#6c6c8a;font-weight:400">works now</span></h2>
     <div class="row">
       <button id="audioBtn">🎤 Start Mic</button>
     </div>
-    <canvas class="vis" id="audioVis"></canvas>
+    <canvas class="vis" id="av"></canvas>
     <div class="srow">
       <span class="bdg" style="background:#e74c3c">Bass <span id="bv">0</span></span>
       <span class="bdg" style="background:#2ecc71">Mid <span id="mv">0</span></span>
       <span class="bdg" style="background:#3498db">Treble <span id="tv">0</span></span>
       <span class="bdg">BPM <span id="bpmv">—</span></span>
-      <span id="btb" class="bdg" style="background:#555">⚡</span>
+      <span id="btb" class="bdg">⚡</span>
     </div>
   </div>
 
-  <!-- LEDS -->
+  <!-- LEDS + GPIO -->
   <div class="card">
     <h2>🌈 LEDs</h2>
     <div class="row">
@@ -108,31 +87,22 @@ canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:b
       <input type="color" id="pc" value="#ff0044">
     </div>
     <div class="row">
-      <button id="startBtn" style="flex:1">▶ Start</button>
+      <button id="startBtn">▶ Start</button>
       <button class="sec" id="stopBtn">■ Stop</button>
       <label>Bright</label>
       <input type="range" id="pb" min="0" max="255" value="128" style="width:4rem">
     </div>
-    <div class="row">
-      <label>Speed</label>
-      <input type="range" id="pspd" min="1" max="255" value="80" style="width:5rem">
-      <span id="pspdv" class="val">80</span>
-    </div>
-    <div class="preview" id="preview"></div>
-  </div>
-
-  <!-- GPIO -->
-  <div class="card">
-    <h2>⚡ GPIO</h2>
+    <div class="preview" id="pv"></div>
+    <hr style="border-color:#222;margin:.5rem 0">
+    <h2 style="margin-top:0">⚡ GPIO</h2>
     <div class="row">
       <label>Pin</label><input type="number" id="gp" value="17" min="2" max="27" style="width:4rem">
       <button id="hi">HIGH</button>
       <button id="lo">LOW</button>
       <button class="sec" id="tog">Toggle</button>
-    </div>
-    <div class="row">
-      <label>PWM</label><input type="range" id="pwm" min="0" max="100" value="0" style="width:6rem">
-      <span id="pwmV" class="val">0%</span>
+      <label>PWM</label>
+      <input type="range" id="pwm" min="0" max="100" value="0" style="width:4rem">
+      <span id="pwmV">0%</span>
       <button class="sm sec" id="pwmBtn">Set</button>
     </div>
   </div>
@@ -145,225 +115,153 @@ canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:b
 const $=id=>document.getElementById(id);
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. FLASH PI VIA WEBUSB
+// 1. ONE-CLICK FLASH
 // ═══════════════════════════════════════════════════════════════════════
 
 const RPI_VID = 0x1d50;
-const RPI_PID_BOOT = 0x6042;  // Pi Zero W in boot mode
-let piDev = null, piIface = null;
-let fl = $('flashLog');
+const RPI_PID_BOOT = 0x6042;  // Pi Zero W boot mode
+let piDev = null;
+let fl = $('fl');
+let isFlashing = false;
 
-function flog(cls, msg) {
+function log(cls, msg) {
   fl.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
   fl.scrollTop = fl.scrollHeight;
 }
-function fbar(pct) { $('flashBar').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
+function bar(pct) { $('fb').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
 
-$('detectBtn').onclick = async () => {
-  fl.innerHTML = '<span class="dim">🔍 Looking for Pi in boot mode...</span>';
-  fbar(0);
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function fetchBinary(name) {
+  // Try fetching from the same origin, with fallback to raw github
+  let r = await fetch(name);
+  if (!r.ok) throw new Error('Failed to fetch ' + name);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+$('goBtn').onclick = async () => {
+  if (isFlashing) return;
+  isFlashing = true;
+  $('goBtn').disabled = true;
+  $('goBtn').textContent = '⏳ Flashing...';
+  fl.innerHTML = '';
+  bar(0);
+
   try {
-    // Try to find already-paired devices
+    // === STAGE 0: Enumeration ===
+    log('dim', '🔍 Step 0: Finding Pi in boot mode...');
     let devs = await navigator.usb.getDevices();
     let dev = devs.find(d => d.vendorId === RPI_VID);
 
     if (!dev) {
-      // Show browser picker
       dev = await navigator.usb.requestDevice({
-        filters: [
-          { vendorId: RPI_VID },  // Any boot mode Pi
-        ]
+        filters: [{ vendorId: RPI_VID }]
       });
     }
-
-    if (!dev) { flog('r', 'No Pi selected'); return; }
-
+    if (!dev) { log('r', 'No Pi selected'); throw new Error('abort'); }
     piDev = dev;
-    flog('g', '✅ Found: ' + (dev.productName || 'Pi Zero W') +
-         ' (0x' + dev.vendorId.toString(16) + ':0x' + dev.productId.toString(16) + ')');
+    log('g', '✅ Found: ' + (dev.productName || 'Pi Zero W'));
 
+    // Open and claim
     await dev.open();
     let cfg = dev.configurations[0];
     await dev.selectConfiguration(cfg.configurationValue);
-
-    // Find bulk interface
-    let iface = null;
-    for (const alt of cfg.interfaces[0].alternates) {
-      if (alt.interfaceClass === 255) { iface = cfg.interfaces[0]; break; }
-    }
-    if (!iface) iface = cfg.interfaces[0];
-
+    let iface = cfg.interfaces[0];
     await dev.claimInterface(iface.interfaceNumber);
-    piIface = iface;
-    flog('g', '✅ Ready to flash. Endpoints: ' +
-         iface.alternate.endpoints.map(e => '0x' + e.endpointNumber.toString(16) +
-         (e.direction === 'out' ? '(OUT)' : '(IN)')).join(', '));
+    log('g', '✅ Interface claimed');
+    bar(5);
 
-    $('flashBtn').disabled = false;
-    // Find OUT endpoint for sending
-    piDev._outEp = iface.alternate.endpoints.find(e => e.direction === 'out');
+    // === STAGE 1: Send bootcode.bin ===
+    log('b', '📥 Step 1: Sending bootcode.bin...');
+    // Send start signal (0x01) first
+    await dev.transferOut(1, new Uint8Array([0x01]));
+    await sleep(200);
 
-    $('piInfo').textContent = dev.productName + ' — ready';
-  } catch(e) {
-    flog('r', '❌ ' + e.message);
-    if (e.message.includes('No device')) {
-      flog('dim', '   Make sure Pi Zero W is connected via USB (SIDE port)');
-      flog('dim', '   with an SD card inserted, and powered on.');
+    let bootcode = await fetchBinary('bootcode.bin');
+    log('dim', '   bootcode.bin: ' + bootcode.length + ' bytes');
+    for (let i = 0; i < bootcode.length; i += 512) {
+      await dev.transferOut(1, bootcode.slice(i, Math.min(i + 512, bootcode.length)));
+      bar(5 + (i / bootcode.length) * 15);
     }
+    log('g', '✅ bootcode.bin sent! Pi will reset...');
+    bar(20);
+
+    // Close and wait for re-enumeration
+    try { dev.close(); } catch(e) {}
+    log('dim', '⏳ Waiting for Pi to re-appear (5s)...');
+    await sleep(5000);
+
+    // === STAGE 2: Re-detect and send boot files ===
+    log('b', '📥 Step 2: Sending boot files...');
+
+    // Re-detect
+    devs = await navigator.usb.getDevices();
+    dev = devs.find(d => d.vendorId === RPI_VID);
+    if (!dev) {
+      log('r', 'Pi did not re-appear. Try power-cycling.');
+      log('dim', '   After bootcode.bin, Pi should re-appear as a new USB device.');
+      log('dim', '   Click "Flash Pi Now" again when it reappears.');
+      throw new Error('abort');
+    }
+    piDev = dev;
+    log('g', '✅ Re-detected: ' + (dev.productName || 'Pi'));
+    await dev.open();
+    cfg = dev.configurations[0];
+    await dev.selectConfiguration(cfg.configurationValue);
+    iface = cfg.interfaces[0];
+    await dev.claimInterface(iface.interfaceNumber);
+    log('g', '✅ Interface claimed for stage 2');
+
+    // Send all boot files in order
+    const files = [
+      { name: 'start.elf', label: 'GPU Firmware' },
+      { name: 'config.txt', label: 'Config' },
+      { name: 'cmdline.txt', label: 'Cmdline' },
+      { name: 'kernel.img', label: 'Kernel' },
+      { name: 'initramfs.gz', label: 'Initramfs' },
+    ];
+
+    for (const [idx, file] of files.entries()) {
+      log('dim', `   Sending ${file.name} (${file.label})...`);
+      const data = await fetchBinary(file.name);
+      for (let i = 0; i < data.length; i += 512) {
+        await dev.transferOut(1, data.slice(i, Math.min(i + 512, data.length)));
+      }
+      bar(20 + ((idx + 1) / files.length) * 60);
+      log('g', `   ✅ ${file.name} sent`);
+    }
+
+    bar(80);
+
+    // Close connection (Pi will boot on its own)
+    try { dev.close(); } catch(e) {}
+    log('b', '🎉 All files sent! Pi is booting...');
+    log('dim', '⏳ Wait ~30 seconds for Pi to boot and advertise as "PiBridge"');
+    log('dim', '   Then click "Connect via BLE" below.');
+    bar(100);
+
+    $('bleBtn').disabled = false;
+    $('bleBtn').classList.add('green');
+    $('piStatus').textContent = '✅ Pi is booting!';
+    isFlashing = false;
+
+  } catch(e) {
+    if (e.message !== 'abort') {
+      log('r', '❌ ' + e.message);
+      log('dim', '   Tips:');
+      log('dim', '   • Use a good USB cable (data, not charge-only)');
+      log('dim', '   • Power cycle the Pi before retrying');
+      log('dim', '   • Make sure Chrome is up to date');
+    }
+    $('goBtn').disabled = false;
+    $('goBtn').textContent = '🚀 Flash Pi Now';
+    isFlashing = false;
+    bar(0);
   }
 };
 
-$('flashBtn').onclick = async () => {
-  if (!piDev) { flog('r', 'Detect Pi first'); return; }
-  flog('b', '📥 Stage 1: Sending bootcode.bin...');
-  fbar(10);
-
-  try {
-    // Step 1: Send 0x01 to trigger boot mode
-    flog('dim', '   Sending start signal (0x01)...');
-    await piDev.transferOut(1, new Uint8Array([0x01]));
-    await sleep(500);
-
-    // Step 2: Send bootcode.bin
-    flog('dim', '   Loading bootcode.bin...');
-    let resp = await fetch('bootcode.bin');
-    if (!resp.ok) throw new Error('Failed to fetch bootcode.bin');
-    let bootcode = new Uint8Array(await resp.arrayBuffer());
-    flog('dim', '   Sending ' + bootcode.length + ' bytes...');
-
-    const chunkSize = 512;
-    for (let i = 0; i < bootcode.length; i += chunkSize) {
-      await piDev.transferOut(1, bootcode.slice(i, Math.min(i + chunkSize, bootcode.length)));
-      fbar(10 + (i / bootcode.length) * 30);
-    }
-    flog('g', '✅ bootcode.bin sent! Pi will reset...');
-    fbar(40);
-
-    // Step 3: Wait for Pi to reset and appear as mass storage
-    flog('dim', '   Waiting for Pi to re-appear as mass storage...');
-    flog('dim', '   It should show up as a USB drive in your file manager.');
-    flog('dim', '   (If not, wait 10s and check for new drive)');
-    fbar(100);
-
-    // After bootcode.bin, the Pi's start.elf will run
-    // and make it appear as a USB mass storage device.
-    // The browser can't claim mass storage interfaces,
-    // so we guide the user to copy files manually.
-
-    $('flashBtn').disabled = true;
-    $('dlPackBtn').classList.add('green');
-    flog('b', '📦 Now download the SD card pack and extract it onto the Pi\'s drive.');
-    flog('b', '   Then eject safely. Reboot Pi. It will appear as "PiBridge" in Bluetooth.');
-
-  } catch(e) {
-    flog('r', '❌ ' + e.message);
-    fbar(0);
-  }
-};
-
-$('sendElfBtn').onclick = async () => {
-  // Alternative: send start.elf directly (for some boot modes)
-  if (!piDev) return;
-  flog('b', '📥 Sending start.elf...');
-  try {
-    let resp = await fetch('start.elf');
-    let elf = new Uint8Array(await resp.arrayBuffer());
-    for (let i = 0; i < elf.length; i += 512) {
-      await piDev.transferOut(1, elf.slice(i, Math.min(i + 512, elf.length)));
-      fbar(50 + (i / elf.length) * 50);
-    }
-    flog('g', '✅ start.elf sent! Pi should now appear as USB drive.');
-    fbar(100);
-  } catch(e) { flog('r', '❌ ' + e.message); }
-};
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 // ═══════════════════════════════════════════════════════════════════════
-// 2. SD CARD PACK DOWNLOAD
-// ═══════════════════════════════════════════════════════════════════════
-
-$('dlPackBtn').onclick = () => {
-  // Generate a zip-like text file with instructions + all needed files
-  const packContent = generateSdCardPack();
-  const blob = new Blob([packContent], { type: 'application/octet-stream' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'pibridge-sd-pack.sh';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  $('dlPackBtn').textContent = '✅ Downloaded! Extract to Pi drive';
-  setTimeout(() => { $('dlPackBtn').textContent = '📦 Download files for SD card'; }, 3000);
-};
-
-function generateSdCardPack() {
-  // Get the firmware code from the embedded comment
-  const html = document.documentElement.outerHTML;
-  const m = html.match(/__FW__\n([\s\S]*?)\n__FW__/);
-  const fw = m ? m[1] : '# firmware not found';
-
-  return `#!/bin/bash
-# PiBridge SD Card Setup Script
-# Run this AFTER the Pi appears as a USB drive.
-# Usage: bash pibridge-sd-pack.sh /media/username/PIBRIDGE
-
-set -e
-MOUNT="\$1"
-if [ -z "$MOUNT" ]; then
-  echo "Usage: bash pibridge-sd-pack.sh /path/to/pi/drive"
-  echo "On ChromeOS: the drive is usually under /media/removable/"
-  ls /media/removable/ 2>/dev/null && echo "Found: $(ls /media/removable/)"
-  exit 1
-fi
-
-echo "📦 Installing PiBridge to $MOUNT..."
-
-# Create directory structure
-mkdir -p "$MOUNT/opt"
-
-# Copy firmware
-cat > "$MOUNT/opt/pibridge.py" << 'PYEOF'
-${fw}
-PYEOF
-chmod +x "$MOUNT/opt/pibridge.py"
-echo "✅ Firmware copied"
-
-# Set up auto-start service
-mkdir -p "$MOUNT/etc/systemd/system"
-cat > "$MOUNT/etc/systemd/system/pibridge.service" << 'SVCEOF'
-[Unit]
-Description=PiBridge BLE Remote GPIO
-After=bluetooth.target
-Wants=bluetooth.target
-
-[Service]
-ExecStart=/usr/bin/python3 /opt/pibridge.py
-Restart=always
-User=root
-
-[Install]
-WantedBy=multi-user.target
-SVCEOF
-echo "✅ Service created"
-
-# Enable service
-mkdir -p "$MOUNT/etc/systemd/system/multi-user.target.wants"
-ln -sf /etc/systemd/system/pibridge.service \\
-  "$MOUNT/etc/systemd/system/multi-user.target.wants/pibridge.service"
-echo "✅ Service enabled for auto-start"
-
-echo ""
-echo "🎉 Done! Safely eject the Pi drive, disconnect USB,"
-echo "   then power cycle the Pi. It will boot and advertise"
-echo "   as 'PiBridge' via Bluetooth within 30 seconds."
-echo ""
-echo "   Open https://sylchi.github.io/pibridge/ in Chrome"
-echo "   and click 'Connect BLE' to control your LEDs!"
-`;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// 3. BLE CONNECTION
+// 2. BLE CONNECTION
 // ═══════════════════════════════════════════════════════════════════════
 
 const BLE_SVC = '4d697272-6f72-0000-0000-000000000000';
@@ -372,29 +270,51 @@ const BLE_CH = {
   wf:'4d697272-6f72-0007-0000-000000000000',
   wm:'4d697272-6f72-0008-0000-000000000000',
   au:'4d697272-6f72-0009-0000-000000000000',
-  pwm:'4d697272-6f72-0004-0000-000000000000',
 };
 let bd, bs, bsv, bch = {}, bcon = false;
-$('cb').onclick = async () => {
-  if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); return; }
+
+$('bleBtn').onclick = async () => {
   try {
-    bd = await navigator.bluetooth.requestDevice({ filters:[{namePrefix:'PiBridge'}], optionalServices:[BLE_SVC] });
+    bd = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'PiBridge' }],
+      optionalServices: [BLE_SVC]
+    });
     bs = await bd.gatt.connect();
     bsv = await bs.getPrimaryService(BLE_SVC);
-    for (const [n,u] of Object.entries(BLE_CH)) bch[n] = await bsv.getCharacteristic(u);
-    bcon = true; $('cs').textContent='Connected'; $('cs').className='stat ok';
-    $('cb').textContent='❌ Disconnect';
-    bd.addEventListener('gattserverdisconnected',()=>{bcon=false;$('cs').textContent='Disconnected';$('cs').className='stat err';$('cb').textContent='🔗 Connect BLE';bch={};});
-  } catch(e) { $('cs').textContent='Error: '+e.message; $('cs').className='stat err'; }
+    for (const [n, u] of Object.entries(BLE_CH))
+      bch[n] = await bsv.getCharacteristic(u);
+    bcon = true;
+    $('cs').textContent = 'Connected';
+    $('cs').className = 'stat ok';
+    $('cb').textContent = '❌ Disconnect';
+    $('bleBtn').textContent = '✅ Connected!';
+    $('bleBtn').disabled = true;
+    bd.addEventListener('gattserverdisconnected', () => {
+      bcon = false; $('cs').textContent = 'Disconnected';
+      $('cs').className = 'stat err'; $('cb').textContent = '🔗 Connect BLE';
+      $('bleBtn').textContent = '🔗 Connect via BLE';
+      $('bleBtn').disabled = false;
+      bch = {};
+    });
+  } catch(e) {
+    $('cs').textContent = 'Error: ' + e.message;
+    $('cs').className = 'stat err';
+  }
 };
-function wc(n,d) { if(bch[n]) try{bch[n].writeValue(d)}catch{} }
+
+$('cb').onclick = async () => {
+  if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); return; }
+  $('bleBtn').click();
+};
+
+function wc(n, d) { if(bch[n]) try{bch[n].writeValue(d)}catch{} }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 4. AUDIO
+// 3. AUDIO REACTIVE
 // ═══════════════════════════════════════════════════════════════════════
 
 let actx, an, src, ad, aOn = false;
-let aB=0,aM=0,aT=0,aBpm=0,aBeat=false, aHist=[], aLast=0, aFid=null, patId=0, patRun=false, patFid=null;
+let aB=0,aM=0,aT=0,aBpm=0,aBeat=false, aHist=[], aLast=0, aFid=null, patRun=false, patFid=null;
 
 $('audioBtn').onclick = async () => {
   if (aOn) { aOn=false; if(actx)actx.close(); $('audioBtn').textContent='🎤 Start Mic'; if(aFid){cancelAnimationFrame(aFid);aFid=null} return; }
@@ -414,225 +334,47 @@ $('audioBtn').onclick = async () => {
       const n=performance.now(); if(aBeat){const dt=n-aLast;if(dt>200&&dt<2000)aBpm=Math.round(60000/dt);aLast=n;}
       $('bv').textContent=Math.round(aB); $('mv').textContent=Math.round(aM); $('tv').textContent=Math.round(aT);
       $('bpmv').textContent=aBpm||'—';
-      const be=$('btb'); if(aBeat){be.style.background='#e94560';be.textContent='⚡ BEAT';setTimeout(()=>{be.style.background='#555';be.textContent='⚡';},150)}
+      const be=$('btb'); if(aBeat){be.style.background='#e94560';be.textContent='⚡ BEAT';setTimeout(()=>{be.style.background='#2c3e50';be.textContent='⚡';},150)}
       if(bcon&&bch.au){const b=new Uint8Array(6);b[0]=Math.round(aB);b[1]=Math.round(aM);b[2]=Math.round(aT);b[3]=aBpm&0xFF;b[4]=(aBpm>>8)&0xFF;b[5]=aBeat?1:0;wc('au',b)}
       drawV(); aFid=requestAnimationFrame(loop);
     })();
   } catch(e) { $('audioBtn').textContent='❌ '+e.message; }
 };
 function avg(s,e){let su=0;for(let i=s;i<e;i++)su+=ad[i];return su/(e-s)}
-function drawV(){const c=$('audioVis');if(!c||!ad)return;const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);const bw=w/ad.length;for(let i=0;i<ad.length;i++){const bh=(ad[i]/255)*h;ctx.fillStyle='hsl('+((i*3)%360)+',80%,60%)';ctx.fillRect(i*bw,h-bh,Math.max(1,bw-1),bh)}}
+function drawV(){const c=$('av');if(!c||!ad)return;const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);const bw=w/ad.length;for(let i=0;i<ad.length;i++){const bh=(ad[i]/255)*h;ctx.fillStyle='hsl('+((i*3)%360)+',80%,60%)';ctx.fillRect(i*bw,h-bh,Math.max(1,bw-1),bh)}}
 
-$('pspd').oninput = () => $('pspdv').textContent = $('pspd').value;
+// ═══════════════════════════════════════════════════════════════════════
+// 4. LED PATTERNS + GPIO
+// ═══════════════════════════════════════════════════════════════════════
 
 $('startBtn').onclick = () => {
-  patId=parseInt($('ps').value); patRun=true;
+  patRun = true;
   const c=$('pc').value; const r=parseInt(c.slice(1,3),16), g=parseInt(c.slice(3,5),16), b=parseInt(c.slice(5,7),16);
-  const spd=parseInt($('pspd').value), bright=parseInt($('pb').value), count=60;
-  if(!patFid){(function step(){if(!patRun){patFid=null;return}patId=parseInt($('ps').value);const f=genF(patId,count,{r,g,b,speed:spd,bright,as:aOn?{bass:aB,mid:aM,treble:aT,beat:aBeat}:null});if(bcon&&bch.wf)wc('wf',f);renderP(f);patFid=requestAnimationFrame(step)})()}
+  const bright=parseInt($('pb').value), count=60;
+  if(!patFid){(function step(){if(!patRun){patFid=null;return}const id=parseInt($('ps').value);const f=genF(id,count,{r,g,b,bright,as:aOn?{bass:aB,mid:aM,treble:aT,beat:aBeat}:null});if(bcon&&bch.wf)wc('wf',f);renderP(f);patFid=requestAnimationFrame(step)})()}
 };
-
 $('stopBtn').onclick = () => { patRun=false; if(bcon)wc('wm',new Uint8Array([18,0,0,0,0,0])); };
 
 function genF(id,c,p) {
-  const f=new Uint8Array(c*3); const{r=255,g=0,b=0,speed=80,bright=128,as}=p; const s=speed/255, br=bright/255;
+  const f=new Uint8Array(c*3); const{r=255,g=0,b=255,bright=128,as}=p; const br=bright/255;
   if(id===1){for(let i=0;i<c;i++){f[i*3]=Math.round(r*br);f[i*3+1]=Math.round(g*br);f[i*3+2]=Math.round(b*br)}return f}
-  if(id===2){for(let i=0;i<c;i++){const h=((i/c)*1)%1.0;const[cr,cg,cb]=hsv(h,1,1);f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br)}return f}
-  if(id===3){const b2=Math.sin(patId*s*0.05)*0.5+0.5;for(let i=0;i<c;i++){f[i*3]=Math.round(r*br*b2);f[i*3+1]=Math.round(g*br*b2);f[i*3+2]=Math.round(b*br*b2)}return f}
-  if(id===4){for(let i=0;i<c;i++){if(i%3===(patId%3)){f[i*3]=Math.round(r*br);f[i*3+1]=Math.round(g*br);f[i*3+2]=Math.round(b*br)}}return f}
-  if(id===5&&as){const{bass,mid,treble,beat}=as;const bs=bass/255,ms=mid/255,ts=treble/255;for(let i=0;i<c;i++){const p=i/c;if(p<1/3){f[i*3]=Math.round(bs*255*br);f[i*3+1]=0;f[i*3+2]=0}else if(p<2/3){f[i*3]=0;f[i*3+1]=Math.round(ms*255*br);f[i*3+2]=0}else{f[i*3]=0;f[i*3+1]=0;f[i*3+2]=Math.round(ts*255*br)}}if(beat)for(let i=0;i<c;i++){f[i*3]=Math.min(255,f[i*3]+150);f[i*3+1]=Math.min(255,f[i*3+1]+150);f[i*3+2]=Math.min(255,f[i*3+2]+150)}return f}
+  if(id===2){for(let i=0;i<c;i++){const h=i/c;const[cr,cg,cb]=hsv(h,1,1);f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br)}return f}
+  if(id===3){const b2=Math.sin(Date.now()*0.003)*0.5+0.5;for(let i=0;i<c;i++){f[i*3]=Math.round(r*br*b2);f[i*3+1]=Math.round(g*br*b2);f[i*3+2]=Math.round(b*br*b2)}return f}
+  if(id===4){for(let i=0;i<c;i++){if(i%3===Math.floor(Date.now()/200)%3){f[i*3]=Math.round(r*br);f[i*3+1]=Math.round(g*br);f[i*3+2]=Math.round(b*br)}}return f}
+  if(id===5&&as){const{bass,mid,treble,beat}=as;const bs=bass/255,ms=mid/255,ts=treble/255;for(let i=0;i<c;i++){const p=i/c;if(p<1/3){f[i*3]=Math.round(bs*255*br)}else if(p<2/3){f[i*3+1]=Math.round(ms*255*br)}else{f[i*3+2]=Math.round(ts*255*br)}}if(beat)for(let i=0;i<c;i++){f[i*3]=Math.min(255,f[i*3]+150);f[i*3+1]=Math.min(255,f[i*3+1]+150);f[i*3+2]=Math.min(255,f[i*3+2]+150)}return f}
   f.fill(0);return f
 }
-
 function hsv(h,s,v){const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);return[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i%6].map(x=>Math.round(x*255))}
+function renderP(f){const d=$('pv');d.innerHTML='';const st=Math.max(1,Math.floor(f.length/3/60));for(let i=0;i<Math.min(60,f.length/3);i++){const idx=i*st*3;const e=document.createElement('div');e.style.cssText='flex:1;height:100%;background:rgb('+f[idx]+','+f[idx+1]+','+f[idx+2]+')';d.appendChild(e)}}
 
-function renderP(f){const d=$('preview');d.innerHTML='';const st=Math.max(1,Math.floor(f.length/3/60));for(let i=0;i<Math.min(60,f.length/3);i++){const idx=i*st*3;const e=document.createElement('div');e.style.cssText='flex:1;height:100%;background:rgb('+f[idx]+','+f[idx+1]+','+f[idx+2]+')';d.appendChild(e)}}
-
-// GPIO
-$('hi').onclick=()=>sg(1);$('lo').onclick=()=>sg(0);$('tog').onclick=()=>{if(bcon){const p=parseInt($('gp').value),m=1<<p;const b=new ArrayBuffer(8);const v=new DataView(b);v.setUint32(0,m>>>0,true);v.setUint32(4,0,true);wc('do',b)}}
+$('hi').onclick=()=>sg(1);$('lo').onclick=()=>sg(0);
 function sg(v){if(!bcon)return;const p=parseInt($('gp').value),m=1<<p,vals=v?m:0;const b=new ArrayBuffer(8);const dv=new DataView(b);dv.setUint32(0,m>>>0,true);dv.setUint32(4,vals>>>0,true);wc('do',b)}
 $('pwm').oninput=()=>$('pwmV').textContent=$('pwm').value+'%';
-$('pwmBtn').onclick=()=>{if(!bcon)return;const p=parseInt($('gp').value),d=parseInt($('pwm').value);const b=new Uint8Array(5);b[0]=p;b[1]=d;b[2]=0xE8;b[3]=0x03;wc('pwm',b)}
+$('pwmBtn').onclick=()=>{if(!bcon)return;const p=parseInt($('gp').value),d=parseInt($('pwm').value);const b=new Uint8Array(5);b[0]=p;b[1]=d;wc('pwm',b)}
 
-console.log('🔧 PiBridge loaded at https://sylchi.github.io/pibridge/');
-console.log('🎤 Audio reactive works NOW — click Start Mic');
-console.log('⚡ Flash Pi via USB — click Detect Pi');
-console.log('🔗 Connect to Pi via BLE — click Connect BLE');
+console.log('🔧 PiBridge — One Click Flash');
+console.log('https://sylchi.github.io/pibridge/');
 })();
 </script>
-<!-- __FW__
-#!/usr/bin/env python3
-"""PiBridge Firmware — BLE Remote GPIO for Pi Zero W.
-Install deps: sudo apt install python3-pip python3-pydbus bluez pi-bluetooth
-             pip3 install rpi-ws281x spidev RPi.GPIO
-Run: sudo python3 /opt/pibridge.py
-"""
-import sys,struct,json,os,time,logging
-logging.basicConfig(level=logging.INFO,format="[PiBridge] %(message)s")
-log=logging.getLogger("PiBridge")
-S="4d697272-6f72-0000-0000-000000000000"
-C={
-'pc':'4d697272-6f72-0001-0000-000000000000',
-'do':'4d697272-6f72-0002-0000-000000000000',
-'di':'4d697272-6f72-0003-0000-000000000000',
-'pw':'4d697272-6f72-0004-0000-000000000000',
-'sv':'4d697272-6f72-0005-0000-000000000000',
-'an':'4d697272-6f72-0006-0000-000000000000',
-'wf':'4d697272-6f72-0007-0000-000000000000',
-'wm':'4d697272-6f72-0008-0000-000000000000',
-'au':'4d697272-6f72-0009-0000-000000000000',
-'sy':'4d697272-6f72-000B-0000-000000000000',
-}
-class HW:
-    def __init__(s):
-        s.gpio=None;s.np=None;s.n=0;s.spi=None;s.pwm={}
-        try:import RPi.GPIO as G;G.setmode(G.BCM);G.setwarnings(0);s.gpio=G;log.info("GPIO")
-        except:log.warning("no GPIO")
-        try:import board,neopixel as n;s._np=n;s._b=board;log.info("WS2812")
-        except:log.warning("no WS2812")
-        try:import spidev;s.spi=spidev.SpiDev();s.spi.open(0,0);s.spi.max_speed_hz=1000000;log.info("ADC")
-        except:log.warning("no SPI")
-    def mode(s,p,m,**kw):
-        if not s.gpio:return
-        if p in s.pwm:s.pwm[p].stop();del s.pwm[p]
-        if m==0:s.gpio.setup(p,s.gpio.IN)
-        elif m==1:s.gpio.setup(p,s.gpio.IN,pull_up_down=kw.get('pull',s.gpio.PUD_OFF))
-        elif m==2:s.gpio.setup(p,s.gpio.OUT,initial=s.gpio.HIGH if kw.get('initial',0) else s.gpio.LOW)
-        elif m==3:s.gpio.setup(p,s.gpio.OUT);pwm=s.gpio.PWM(p,kw.get('freq',1000));pwm.start(kw.get('duty',0));s.pwm[p]=pwm
-        elif m==4:s.gpio.setup(p,s.gpio.OUT);pwm=s.gpio.PWM(p,50);pwm.start(0);s.pwm[p]=pwm
-    def write(s,mask,vals):
-        if not s.gpio:return
-        for p in range(28):
-            if mask&(1<<p):s.gpio.output(p,s.gpio.HIGH if(vals&(1<<p))else s.gpio.LOW)
-    def read(s,p):return s.gpio.input(p)if s.gpio else 0
-    def pwm(s,p,d,f=None):
-        if p in s.pwm:
-            if f:s.pwm[p].ChangeFrequency(f)
-            s.pwm[p].ChangeDutyCycle(d)
-    def servo(s,p,u):
-        if p in s.pwm:s.pwm[p].ChangeDutyCycle((u/20000.0)*100)
-    def ws2812_init(s,p,c):
-        if not hasattr(s,'_np'):return
-        if s.np:s.np.deinit()
-        s.np=s._np.NeoPixel(getattr(s._b,f'D{p}',s._b.D18),c,brightness=0.5,auto_write=False,pixel_order=s._np.GRB)
-        s.n=c;log.info(f"WS2812 {c} on GPIO{p}")
-    def ws2812_write(s,d):
-        if not s.np:return
-        n=min(len(d)//3,s.n)
-        for i in range(n):s.np[i]=(d[i*3],d[i*3+1],d[i*3+2])
-        s.np.show()
-    def analog(s,c):
-        if not s.spi:return 0
-        r=s.spi.xfer2([1,(8+c)<<4,0]);return((r[1]&3)<<8)+r[2]
-
-try:import pydbus;from gi.repository import GLib;HAS_D=True
-except:HAS_D=False
-
-class GS:
-    dbus='<node><interface name="org.bluez.GattService1"><property name="UUID" type="s" access="read"/><property name="Primary" type="b" access="read"/><property name="Includes" type="ao" access="read"/></interface></node>'
-    def __init__(s,p,u):s.path=p;s.uuid=u;s.primary=True;s.includes=[]
-    @property
-    def UUID(s):return s.uuid
-    @property
-    def Primary(s):return s.primary
-    @property
-    def Includes(s):return s.includes
-
-class GC:
-    dbus='<node><interface name="org.bluez.GattCharacteristic1"><property name="UUID" type="s" access="read"/><property name="Service" type="o" access="read"/><property name="Value" type="ay" access="read"/><property name="Flags" type="as" access="read"/><property name="Notifying" type="b" access="read"/><method name="ReadValue"><arg type="ay" name="value" direction="out"/><arg name="options" type="a{sv}" direction="in"/></method><method name="WriteValue"><arg type="ay" name="value" direction="in"/><arg name="options" type="a{sv}" direction="in"/></method><method name="StartNotify"/><method name="StopNotify"/></interface></node>'
-    def __init__(s,p,u,f,sp,rfn,wfn):s.path=p;s.uuid=u;s.flags=f;s.sp=sp;s.rfn=rfn;s.wfn=wfn;s._v=b'';s._n=False;s._bus=None
-    @property
-    def UUID(s):return s.uuid
-    @property
-    def Service(s):return s.sp
-    @property
-    def Value(s):return list(s._v)
-    @property
-    def Flags(s):return s.flags
-    @property
-    def Notifying(s):return s._n
-    def ReadValue(s,o):
-        if s.rfn:s._v=s.rfn(s)or b''
-        return list(s._v)
-    def WriteValue(s,v,o):
-        s._v=bytes(v)
-        if s.wfn:
-            try:s.wfn(s,s._v)
-            except:pass
-    def StartNotify(s):s._n=True
-    def StopNotify(s):s._n=False
-    def notify(s,d):
-        if not s._n or not s._bus:return
-        s._v=bytes(d)
-        try:s._bus.send('org.bluez',s.path,'org.freedesktop.DBus.Properties','PropertiesChanged','sa{sv}as',('org.bluez.GattCharacteristic1',{'Value':GLib.Variant('ay',list(s._v))},[]))
-        except:pass
-
-class App:
-    def __init__(s,hw):s.hw=hw;s.bus=None;s.ml=GLib.MainLoop();s.svc=None;s.ch={};s.ds={};s.au={'bass':0,'mid':0,'treble':0,'bpm':120,'beat':False}
-    def run(s):
-        if not HAS_D:log.error("Need pydbus");sys.exit(1)
-        s.bus=pydbus.SystemBus()
-        B='/io/pibridge';s.svc=GS(B,S)
-        D=[('pc',C['pc'],['write'],None,s._pc),('do',C['do'],['write','write-without-response'],None,s._do),('di',C['di'],['read','notify'],s._rdi,None),('pw',C['pw'],['write','write-without-response'],None,s._pw),('sv',C['sv'],['write','write-without-response'],None,s._sv),('an',C['an'],['read'],s._ra,None),('wf',C['wf'],['write','write-without-response'],None,s._wf),('wm',C['wm'],['write','write-without-response'],None,s._wm),('au',C['au'],['write','write-without-response'],None,s._au),('sy',C['sy'],['write','read','notify'],s._rs,s._sy)]
-        for i,n,u,f,r,w in enumerate(D):s.ch[n]=GC(f'{B}/c{i}',u,f,B,r,w)
-        try:
-            a=s.bus.get('org.bluez','/org/bluez/hci0')
-            if not a.Powered:a.Powered=True
-            g=s.bus.get('org.bluez','/org/bluez/hci0/gatt_manager')
-            s.bus.register_object(B,s.svc,None)
-            for c in s.ch.values():s.bus.register_object(c.path,c,None);c._bus=s.bus
-            g.RegisterApplication(B,{})
-            a.SetDiscoveryFilter({'Type':'peripheral','ServiceUUIDs':GLib.Variant('as',[S]),'Discoverable':True,'DiscoverableTimeout':GLib.Variant('u',0),'LocalName':GLib.Variant('s','PiBridge')})
-            log.info("PiBridge ready — connect via Bluetooth")
-        except Exception as e:log.error(f"BLE: {e}");sys.exit(1)
-        GLib.timeout_add(100,s._poll)
-        try:s.ml.run()
-        except KeyboardInterrupt:pass
-    def _pc(s,c,d):
-        if len(d)<2:return
-        p,m=d[0],d[1];a={}
-        if m==5 and len(d)>=4:hw.ws2812_init(p,struct.unpack('<H',d[2:4])[0])
-        elif m==6 and len(d)>=3:a['channel']=d[2]
-        hw.mode(p,m,**a)
-    def _do(s,c,d):
-        if len(d)>=8:hw.write(struct.unpack('<I',d[:4])[0],struct.unpack('<I',d[4:8])[0])
-    def _rdi(s,c):
-        r=bytearray()
-        for p in range(28):r.extend(struct.pack('BB',p,hw.read(p)))
-        return bytes(r)
-    def _pw(s,c,d):
-        if len(d)>=2:
-            f=struct.unpack('<H',d[2:4])[0] if len(d)>=4 else None
-            hw.pwm(d[0],d[1],f)
-    def _sv(s,c,d):
-        if len(d)>=3:hw.servo(d[0],struct.unpack('<H',d[1:3])[0])
-    def _ra(s,c):
-        r=bytearray()
-        for ch in range(8):v=hw.analog(ch);r.extend(struct.pack('BH',ch,v))
-        return bytes(r)
-    def _wf(s,c,d):hw.ws2812_write(d)
-    def _wm(s,c,d):
-        if len(d)>=2:
-            if d[1]==0 and hw.np:hw.np.fill((0,0,0));hw.np.show()
-            elif d[1]==1 and len(d)>=6 and hw.np:hw.np.fill((d[3],d[4],d[5]));hw.np.show()
-    def _au(s,c,d):
-        if len(d)>=6:s.au=dict(bass=d[0],mid=d[1],treble=d[2],bpm=struct.unpack('<H',d[3:5])[0],beat=bool(d[5]))
-    def _rs(s,c):return json.dumps({'pins':28,'audio':s.au}).encode()
-    def _sy(s,c,d):
-        if len(d)>=1 and d[0]==1:os.system('sudo reboot &')
-    def _poll(s):
-        if not hw.gpio or 'di' not in s.ch:return True
-        c=bytearray()
-        for p in range(28):
-            try:v=hw.read(p);v2=s.ds.get(p);v3=v!=v2
-            except:v3=False
-            if v3:s.ds[p]=v;c.extend(struct.pack('BB',p,v))
-        if c:s.ch['di'].notify(bytes(c))
-        return True
-
-if __name__=='__main__':
-    if os.geteuid()!=0:log.warning("Not root")
-    hw=HW();App(hw).run()
-__FW__ -->
 </body>
 </html>
