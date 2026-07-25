@@ -289,7 +289,7 @@ $('goBtn').onclick = async () => {
       ['initramfs.gz', 'RAM filesystem', '💿'],
     ];
 
-    for (const [idx, [name, label, icon]]) of files.entries()) {
+    for (const [idx, [name, label, icon]] of files.entries()) {
       log('dim', `   [${idx+1}/${files.length}] ${icon} ${label} (${name})...`);
       const data = await fetchBin(name);
       await sendFile(dev, data, (sent, total) => {
