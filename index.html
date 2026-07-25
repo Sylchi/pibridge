@@ -160,9 +160,25 @@ const $=id=>document.getElementById(id);
 // ═══════════════════════════════════════════════════════════════════════
 // Pi Zero W boot: Stage 1 = Broadcom BCM2708 Boot (0a5c:2763)
 // Stage 2 (after bootcode.bin) = 1d50:6042
-// Protocol: send 0x01 start signal, then bootcode.bin.
-// Pi resets and re-enumerates. Then send remaining files.
-// Pi boots initramfs from RAM — no SD card needed.
+//
+// Protocol (from rpiboot source):
+//   ep_write: vendor control OUT (bReq=0, wValue=len&0xFFFF, wIndex=len>>16)
+//             then bulk OUT on endpoint to send data
+//   ep_read:  vendor control IN (bReq=0, wValue=len&0xFFFF, wIndex=len>>16)
+//             device fills buffer with response data
+//
+// Stage 1 (BCM2708 Boot ROM):
+//   1. ep_write 24-byte header (boot_message: 4-byte length + 20-byte signature)
+//   2. ep_write bootcode.bin
+//   3. ep_read 4-byte status
+//
+// Stage 2 (file server, after re-enumeration):
+//   1. Claim interface 1 (vendor), endpoints 3 OUT / 4 IN
+//   2. Loop: ep_read file_message {command:int32, filename:char[256]}
+//      - GetFileSize (0): ep_write file size via control
+//      - ReadFile (1):    ep_write file contents
+//      - Done (2):        exit
+//
 let piDev = null, fl = $('fl'), isFlashing = false;
 
 function log(cls, msg) {
@@ -178,19 +194,108 @@ async function fetchBin(name) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
-function sendFile(dev, data, onChunk) {
-  return new Promise(async (resolve, reject) => {
-    for (let i = 0; i < data.length; i += 512) {
-      try {
-        await dev.transferOut(1, data.slice(i, Math.min(i + 512, data.length)));
-        if (onChunk) onChunk(i, data.length);
-      } catch(e) {
-        reject(e);
-        return;
+// ── Low-level rpiboot protocol helpers ──────────────────────────
+
+/** Vendor control OUT to announce length, then bulk OUT to send data */
+async function epWrite(dev, data, ep) {
+  ep = ep || 1;
+  const len = data.length;
+  await dev.controlTransferOut({
+    requestType: 'vendor',
+    recipient: 'device',
+    request: 0,
+    value: len & 0xFFFF,
+    index: len >> 16,
+  });
+  if (len === 0) return;
+  // Send in chunks up to 16KB (LIBUSB_MAX_TRANSFER)
+  for (let off = 0; off < len; off += 16384) {
+    const chunk = data.slice(off, Math.min(off + 16384, len));
+    await dev.transferOut(ep, chunk);
+  }
+}
+
+/** Vendor control IN to read data of given length */
+async function epRead(dev, len, ep) {
+  const result = await dev.controlTransferIn({
+    requestType: 'vendor',
+    recipient: 'device',
+    request: 0,
+    value: len & 0xFFFF,
+    index: len >> 16,
+  }, len);
+  return result.data;
+}
+
+/** Send bootcode.bin using the rpiboot protocol */
+async function sendBootcode(dev, bootcode) {
+  // Step 1: Send 24-byte boot_message header (4-byte length + 20 zero signature)
+  const msg = new ArrayBuffer(24);
+  const dv = new DataView(msg);
+  dv.setUint32(0, bootcode.length, true);  // little-endian length
+  // bytes 4-23 are zero (no signature/signed boot)
+  await epWrite(dev, new Uint8Array(msg));
+
+  // Step 2: Send actual bootcode.bin
+  await epWrite(dev, bootcode);
+
+  // Step 3: Read 4-byte status response
+  const resp = await epRead(dev, 4);
+  const status = new DataView(resp.buffer).getUint32(0, true);
+  return status;
+}
+
+/**
+ * Run the file server protocol after bootcode.bin has booted the Pi.
+ * The Pi requests files one by one; we serve them from `fileMap`.
+ */
+async function fileServer(dev, fileMap) {
+  // After bootcode.bin, the Pi re-enumerates with 2 interfaces:
+  //   Interface 0 = mass storage (class 8)
+  //   Interface 1 = vendor (class 255) for file requests
+  const cfg = dev.configurations[0];
+  const numIface = cfg.interfaces.length;
+  const iface = numIface > 1 ? cfg.interfaces[1] : cfg.interfaces[0];
+  const outEp = numIface > 1 ? 3 : 1;
+
+  await dev.claimInterface(iface.interfaceNumber);
+
+  while (true) {
+    // Read file_message: {command: int32, filename: char[256]}
+    const data = await epRead(dev, 260);
+    const cmd = new DataView(data.buffer).getInt32(0, true);
+    const name = new TextDecoder()
+      .decode(data.slice(4, 260))
+      .replace(/\0+$/, '');
+
+    if (cmd === 2 || name.length === 0) {
+      // Done
+      await epWrite(dev, new Uint8Array(0), outEp);
+      break;
+    }
+
+    const fileData = fileMap[name];
+
+    if (cmd === 0) {
+      // GetFileSize — send size via control (no bulk)
+      const size = fileData ? fileData.length : 0;
+      await dev.controlTransferOut({
+        requestType: 'vendor',
+        recipient: 'device',
+        request: 0,
+        value: size & 0xFFFF,
+        index: size >> 16,
+      });
+    } else if (cmd === 1) {
+      // ReadFile — send contents
+      if (fileData) {
+        await epWrite(dev, fileData, outEp);
+      } else {
+        // File not found: signal with zero-length response
+        await epWrite(dev, new Uint8Array(0), outEp);
       }
     }
-    resolve();
-  });
+  }
 }
 
 $('goBtn').onclick = async () => {
@@ -264,68 +369,67 @@ $('goBtn').onclick = async () => {
     log('g', '✅ USB interface claimed');
     bar(5);
 
-    // === Stage 1: Send bootcode.bin ===
-    log('b', '📥 Sending bootcode.bin (52 KB)...');
-    await dev.transferOut(1, new Uint8Array([0x01]));
-    await sleep(300);
-
+    // === Stage 1: Send bootcode.bin using rpiboot protocol ===
+    log('b', '📥 Sending bootcode.bin (52 KB) via rpiboot protocol...');
+    bar(8);
     let bc = await fetchBin('bootcode.bin');
-    await sendFile(dev, bc, (sent, total) => {
-      bar(5 + (sent / total) * 10);
-    });
-    log('g', '✅ bootcode.bin sent — Pi will reset and re-enumerate');
+    const status = await sendBootcode(dev, bc);
     bar(15);
+    if (status !== 0) {
+      log('r', '❌ Pi boot ROM returned error: 0x' + status.toString(16));
+      log('dim', '   Try power-cycling the Pi and try again.');
+      throw new Error('abort');
+    }
+    log('g', '✅ bootcode.bin sent successfully — Pi will reset and re-enumerate');
 
     // Close and wait for re-detection
     try { dev.close(); } catch(e) {}
-    log('dim', '⏳ Waiting for Pi to re-appear as 0x1d50 (8s)...');
+    log('dim', '⏳ Waiting for Pi to re-appear as 0x1d50 (up to 20s)...');
     log('dim', '   After bootcode.bin, the Pi re-enumerates with VID 0x1d50.');
-    await sleep(8000);
 
     // ─── Stage 2: 1d50 (re-enumerated after bootcode.bin) ─────
-    log('b', '📥 Reconnecting to Pi (now 0x1d50)...');
-    devs = await navigator.usb.getDevices();
-    dev = devs.find(d => d.vendorId === 0x1d50);
-    if (!dev) {
-      await sleep(3000);
+    let found = false, s2dev = null;
+    for (let w = 0; w < 20; w++) {
+      await sleep(1000);
       devs = await navigator.usb.getDevices();
-      dev = devs.find(d => d.vendorId === 0x1d50);
+      s2dev = devs.find(d => d.vendorId === 0x1d50);
+      if (s2dev) { found = true; break; }
     }
-    if (!dev) {
-      log('r', '❌ Pi not found after bootcode.bin.');
+    if (!found) {
+      log('r', '❌ Pi did not re-appear after bootcode.bin.');
       log('dim', '   Try power-cycling (unplug/replug USB).');
       log('dim', '   Make sure no SD card is inserted in the Pi.');
       throw new Error('abort');
     }
 
-    piDev = dev;
-    await dev.open();
-    cfg = dev.configurations[0];
-    await dev.selectConfiguration(cfg.configurationValue);
-    await dev.claimInterface(cfg.interfaces[0].interfaceNumber);
-    log('g', '✅ Reconnected — sending boot files');
+    log('g', '✅ Pi re-appeared as 0x1d50:' + s2dev.productId.toString(16));
+    piDev = s2dev;
+    await s2dev.open();
+    // Select config but DON'T claim interface 0 yet — let fileServer handle it
+    const cfg2 = s2dev.configurations[0];
+    await s2dev.selectConfiguration(cfg2.configurationValue);
+    log('g', '✅ Reconnected — starting file server');
 
-    const files = [
-      ['start.elf',    'GPU firmware',  '📦'],
-      ['config.txt',   'Boot config',   '⚙'],
-      ['cmdline.txt',  'Kernel cmdline','⚙'],
-      ['kernel.img',   'Linux kernel',  '🧠'],
-      ['initramfs.gz', 'RAM filesystem', '💿'],
+    // Pre-fetch all boot files into a Map for the file server
+    const fileNames = [
+      'start.elf', 'config.txt', 'cmdline.txt',
+      'kernel.img', 'initramfs.gz'
     ];
-
-    for (const [idx, [name, label, icon]] of files.entries()) {
-      log('dim', `   [${idx+1}/${files.length}] ${icon} ${label} (${name})...`);
-      const data = await fetchBin(name);
-      await sendFile(dev, data, (sent, total) => {
-        const basePct = 15 + (idx / files.length) * 65;
-        bar(basePct + (sent / total) * (65 / files.length));
-      });
-      log('g', `      ✓ ${name} (${(data.length/1024).toFixed(0)} KB)`);
+    const fileMap = {};
+    for (const [idx, name] of fileNames.entries()) {
+      log('dim', `   [${idx+1}/${fileNames.length}] Loading ${name}...`);
+      fileMap[name] = await fetchBin(name);
+      const basePct = 15 + (idx / fileNames.length) * 65;
+      bar(basePct);
     }
 
-    try { dev.close(); } catch(e) {}
+    log('b', '📥 File server: Pi will request files...');
+    await fileServer(s2dev, fileMap);
+    bar(95);
+
+    try { s2dev.close(); } catch(e) {}
     bar(100);
-    log('b', '🎉 All files sent! Pi is booting...');
+    log('b', '🎉 All files transferred! Pi is booting...');
     log('dim', '⏳ Pi boots the initramfs and starts Bluetooth.');
     log('dim', '⏳ It will advertise as "PiBridge" in about 25 seconds.');
     log('dim', '⏳ Then click "Connect via BLE" below.');
