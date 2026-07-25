@@ -216,8 +216,12 @@ $('goBtn').onclick = async () => {
     if (!dev) {
       log('dim', '   No Pi found yet. Opening device picker...');
       try {
+        // Use specific filter to avoid showing other Broadcom devices
         dev = await navigator.usb.requestDevice({
-          filters: [{ vendorId: 0x0a5c }]  // Broadcom BCM2708 Boot
+          filters: [{
+            vendorId: 0x0a5c,
+            productId: 0x2763  // BCM2708 Boot only
+          }]
         });
       } catch(e) {
         if (e.name === 'NotFoundError') {
@@ -236,11 +240,27 @@ $('goBtn').onclick = async () => {
     log('g', '✅ Pi Zero W detected in boot mode (Broadcom BCM2708 Boot)!');
 
     // Open and claim interface
-    await dev.open();
+    try {
+      await dev.open();
+    } catch(e) {
+      log('r', '❌ Cannot open Pi: ' + e.message);
+      log('dim', '   This means a system driver is blocking access.');
+      log('dim', '   Try: unplug and replug the Pi, then click Flash again.');
+      log('dim', '   If still failing, close other USB apps and retry.');
+      throw new Error('abort');
+    }
     let cfg = dev.configurations[0];
     await dev.selectConfiguration(cfg.configurationValue);
     let iface = cfg.interfaces[0];
-    await dev.claimInterface(iface.interfaceNumber);
+    try {
+      await dev.claimInterface(iface.interfaceNumber);
+    } catch(e) {
+      log('r', '❌ Cannot claim interface: ' + e.message);
+      log('dim', '   Trying alternate interface...');
+      if (cfg.interfaces.length > 1) {
+        await dev.claimInterface(cfg.interfaces[1].interfaceNumber);
+      } else { throw new Error('abort'); }
+    }
     log('g', '✅ USB interface claimed');
     bar(5);
 
@@ -267,8 +287,7 @@ $('goBtn').onclick = async () => {
     devs = await navigator.usb.getDevices();
     dev = devs.find(d => d.vendorId === 0x1d50);
     if (!dev) {
-      // Try getDevices again after a brief wait
-      await sleep(2000);
+      await sleep(3000);
       devs = await navigator.usb.getDevices();
       dev = devs.find(d => d.vendorId === 0x1d50);
     }
@@ -276,17 +295,6 @@ $('goBtn').onclick = async () => {
       log('r', '❌ Pi not found after bootcode.bin.');
       log('dim', '   Try power-cycling (unplug/replug USB).');
       log('dim', '   Make sure no SD card is inserted in the Pi.');
-      throw new Error('abort');
-    }
-
-    // === Stage 2: Re-detect and send boot files ===
-    log('b', '📥 Reconnecting...');
-    devs = await navigator.usb.getDevices();
-    dev = devs.find(d => d.vendorId === RPI_VID);
-    if (!dev) {
-      log('r', '❌ Pi not found after reset.');
-      log('dim', '   Try power-cycling the Pi (unplug/replug USB).');
-      log('dim', '   If the Pi has an SD card inserted, try removing it.');
       throw new Error('abort');
     }
 
