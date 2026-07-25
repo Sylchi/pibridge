@@ -225,7 +225,7 @@ $('goBtn').onclick = async () => {
       ['initramfs.gz', 'Initramfs (OS)']
     ];
 
-    for (const [idx, [name, label]]) of files.entries()) {
+    for (const [idx, [name, label]] of files.entries()) {
       log('dim', `   [${idx+1}/${files.length}] ${label} (${name})...`);
       const data = await fetchBin(name);
       for (let i = 0; i < data.length; i += 512) {
