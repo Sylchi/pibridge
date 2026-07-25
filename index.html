@@ -59,32 +59,32 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 
 <div class="grid">
 
-  <!-- ═══════ SD CARD SETUP ═══════ -->
+  <!-- ═══════ USB FLASH ═══════ -->
   <div class="card">
-    <h2>💾 Prepare SD Card for Pi Zero W</h2>
+    <h2>💾 Flash SD Card via USB</h2>
 
-    <div class="step"><span class="num">1</span> Insert SD card <strong>(FAT32, ≥256MB)</strong> into your computer</div>
-    <div class="step"><span class="num">2</span> Click <strong>"Write Files to SD Card"</strong> below</div>
-    <div class="step"><span class="num">3</span> Select the SD card folder when prompted</div>
+    <div class="step"><span class="num">1</span> Insert SD card into <strong>USB card reader</strong> and connect to PC</div>
+    <div class="step"><span class="num">2</span> Click <strong>"📀 Flash SD Card"</strong> — select the reader in the USB picker</div>
+    <div class="step"><span class="num">3</span> Browser writes PiBridge boot image <strong>directly to raw blocks</strong> (like dd)</div>
     <div class="step"><span class="num">4</span> Put SD card in Pi, power on — connects via BLE</div>
 
     <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
-      Writes boot files + PiBridge firmware directly to your SD card.
-      No terminal or external tools needed. <strong>Chrome or Edge required.</strong>
+      Uses WebUSB + SCSI WRITE10 to write a bootable image. <strong>Chrome/Edge on Linux.</strong>
+      On Windows, <a href="https://zadig.akeo.ie/" target="_blank" style="color:#e94560">install WinUSB via Zadig</a> for the reader first.
     </p>
 
-    <div id="sdLog" class="log"><span class="dim">Insert SD card, then click the button below.</span></div>
+    <div id="sdLog" class="log"><span class="dim">Insert SD card reader, then click Flash.</span></div>
     <div class="progress"><div class="bar" id="sdBar"></div></div>
 
     <div class="row" style="gap:.6rem">
-      <button id="sdBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">💾  Write Files to SD Card</button>
-      <a href="pibridge-sd.img.gz" download class="sec" style="background:#2c3e50;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;text-decoration:none;font-size:.8rem;white-space:nowrap">⬇ .img.gz</a>
+      <button id="sdBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">📀  Flash SD Card</button>
+      <a href="pibridge-sd.img.gz" download style="background:#2c3e50;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;text-decoration:none;font-size:.8rem;white-space:nowrap">⬇ .img.gz</a>
     </div>
 
     <div class="hint">
-      <strong>Tip:</strong> If your SD card isn't FAT32, format it first:
-      Linux: <code>mkfs.vfat /dev/mmcblk0p1</code> |
-      Windows/macOS: right-click → Format → FAT32
+      <strong>⚠️  All data on the SD card will be overwritten.</strong>
+      The image contains a FAT32 boot partition with PiBridge firmware.
+      ~33 MB image, writes in a few seconds.
     </div>
   </div>
 
@@ -162,16 +162,20 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 const $=id=>document.getElementById(id);
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. SD CARD SETUP — Write boot files via File System Access API
+// 1. USB FLASH — Write raw disk image to SD card via WebUSB + SCSI
 // ═══════════════════════════════════════════════════════════════════════
-// Uses the browser's File System Access API to write boot files directly
-// to the user's mounted SD card. The SD card must be formatted as FAT32.
+// Implements USB Mass Storage Bulk-Only Transport (BOT) protocol
+// to send SCSI WRITE10 commands. Downloads .img.gz, decompresses,
+// writes raw blocks — like dd over the web.
 //
-// Files written:
-//   bootcode.bin, start.elf, fixup.dat, config.txt, cmdline.txt,
-//   kernel.img, initramfs.gz, bcm2708-rpi-zero-w.dtb
+// Protocol:
+//   CBW (31 B): signature + tag + data len + flags + LUN + CDB len + CDB
+//   Data phase (IN or OUT based on flags)
+//   CSW (13 B): signature + tag + residue + status
 //
-// Chrome/Edge only. User selects the SD card folder via showDirectoryPicker().
+// Linux: Chrome detaches kernel driver automatically.
+// Windows: User must replace driver with WinUSB via Zadig.
+// macOS: untested, likely needs driver work.
 
 let sdLog = $('sdLog');
 
@@ -181,91 +185,234 @@ function sdLogMsg(cls, msg) {
 }
 function sdBar(pct) { $('sdBar').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
 
-const SD_FILES = [
-  ['bootcode.bin',             'Boot ROM',      '52 KB'],
-  ['start.elf',                'GPU firmware',  '2.9 MB'],
-  ['fixup.dat',                'GPU startup',   '7 KB'],
-  ['config.txt',               'Boot config',   '133 B'],
-  ['cmdline.txt',              'Kernel params', '63 B'],
-  ['kernel.img',               'Linux kernel',  '7.4 MB'],
-  ['initramfs.gz',             'RAM filesystem','23 MB'],
-  ['bcm2708-rpi-zero-w.dtb',   'Device tree',   '32 KB'],
-];
+let sdDevice = null;
 
 $('sdBtn').onclick = async () => {
-  sdLog.innerHTML = '<span class="dim">Select your SD card folder...</span>';
+  sdLog.innerHTML = '';
   sdBar(0);
 
   try {
-    // Check for File System Access API
-    if (!('showDirectoryPicker' in window)) {
-      sdLogMsg('r', '❌ File System Access API not supported.');
-      sdLogMsg('dim', '   Use Chrome or Edge browser.');
+    // ── 1. Detect USB mass storage device ────────────────────────
+    if (!navigator.usb) {
+      sdLogMsg('r', '❌ WebUSB not supported. Use Chrome or Edge.');
       return;
     }
 
-    // Step 1: User picks the SD card directory
-    let dir;
+    sdLogMsg('b', '🔍 Detecting SD card reader...');
+    let devs = await navigator.usb.getDevices();
+    let dev = devs.find(d => d.configurations.some(c =>
+      c.interfaces.some(i => i.alternates.some(a => a.interfaceClass === 8))
+    ));
+
+    if (!dev) {
+      sdLogMsg('dim', '   Opening USB device picker...');
+      sdLogMsg('dim', '   Select your SD card reader from the list.');
+      // Request any mass storage device (class 8)
+      dev = await navigator.usb.requestDevice({
+        filters: []  // Show all devices, user picks
+      });
+    }
+
+    if (!dev) { sdLogMsg('r', '❌ No device selected'); return; }
+    sdDevice = dev;
+    sdLogMsg('g', '✅ Device: ' + (dev.productName || 'USB Storage'));
+
+    await dev.open();
+    sdLogMsg('g', '✅ Device opened');
+
+    // Find mass storage interface and endpoints
+    let cfg = dev.configuration || dev.configurations[0];
+    await dev.selectConfiguration(cfg.configurationValue);
+
+    let iface = null, epIn = null, epOut = null;
+    for (const i of cfg.interfaces) {
+      for (const alt of i.alternates) {
+        if (alt.interfaceClass === 8) {  // Mass Storage
+          iface = i;
+          for (const ep of alt.endpoints) {
+            if (ep.direction === 'in') epIn = ep.endpointNumber;
+            if (ep.direction === 'out') epOut = ep.endpointNumber;
+          }
+          break;
+        }
+      }
+      if (iface) break;
+    }
+
+    if (!iface || !epIn || !epOut) {
+      sdLogMsg('r', '❌ No mass storage interface found on this device.');
+      sdLogMsg('dim', '   Make sure a USB SD card reader is connected.');
+      return;
+    }
+
     try {
-      dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+      await dev.claimInterface(iface.interfaceNumber);
     } catch(e) {
-      if (e.name === 'AbortError' || e.name === 'SecurityError') {
-        sdLogMsg('dim', '⏹ Cancelled');
-        return;
-      }
-      throw e;
+      sdLogMsg('r', '❌ Cannot claim interface. The OS driver is blocking.');
+      sdLogMsg('dim', '   Linux: Chrome should auto-detach driver.');
+      sdLogMsg('dim', '   On Windows: use Zadig to replace driver with WinUSB.');
+      sdLogMsg('dim', '   Then unplug/replug the reader and try again.');
+      return;
     }
 
-    sdLogMsg('g', '✅ SD card folder selected');
-    sdBar(5);
+    sdLogMsg('g', '✅ Interface claimed');
+    sdLogMsg('dim', `   EP OUT: 0x${epOut.toString(16)}, EP IN: 0x${epIn.toString(16)}`);
 
-    // Step 2: Verify it looks like an SD card (has free space)
-    // We can't check size from File System API, just proceed
+    // ── 2. Reset BOT state machine ───────────────────────────────
+    sdLogMsg('b', '🔧 Initializing mass storage protocol...');
+    try {
+      // Mass Storage Reset (class-specific request)
+      await dev.controlTransferOut({
+        requestType: 'class',
+        recipient: 'interface',
+        request: 0xFF,
+        value: 0,
+        index: iface.interfaceNumber
+      });
+    } catch(e) { /* might fail if not needed */ }
 
-    // Step 3: Download and write each file
-    for (let i = 0; i < SD_FILES.length; i++) {
-      const [name, label, sizeHint] = SD_FILES[i];
-      sdLogMsg('dim', `   [${i+1}/${SD_FILES.length}] Downloading ${name} (${sizeHint})...`);
+    // Clear endpoint stalls
+    try { await dev.clearHalt('out', epOut); } catch(e) {}
+    try { await dev.clearHalt('in', epIn); } catch(e) {}
 
-      // Download the file from our server
-      let resp;
-      try {
-        resp = await fetch(name);
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      } catch(e) {
-        sdLogMsg('r', `❌ Failed to fetch ${name}: ${e.message}`);
-        return;
+    // ── 3. SCSI helper ───────────────────────────────────────────
+    let tagCounter = 0;
+
+    async function scsiExec(cdb, dataInLen, dataOut) {
+      tagCounter++;
+      const tag = (tagCounter * 0x1000000 + Date.now()) >>> 0;
+      const flags = dataInLen ? 0x80 : 0x00;
+      const dataLen = dataInLen || (dataOut ? dataOut.byteLength : 0);
+
+      // Build CBW (31 bytes)
+      const cbw = new ArrayBuffer(31);
+      const dv = new DataView(cbw);
+      dv.setUint32(0, 0x43425355, true);  // 'USBC'
+      dv.setUint32(4, tag, true);
+      dv.setUint32(8, dataLen, true);
+      dv.setUint8(12, flags);
+      dv.setUint8(13, 0);                 // LUN = 0
+      dv.setUint8(14, cdb.byteLength);    // CDB length
+      new Uint8Array(cbw, 15).set(new Uint8Array(cdb));  // CDB
+
+      // Send CBW
+      await dev.transferOut(epOut, new Uint8Array(cbw));
+
+      // Data phase
+      let result = null;
+      if (dataOut) {
+        await dev.transferOut(epOut, dataOut);
+      } else if (dataInLen > 0) {
+        const res = await dev.transferIn(epIn, dataInLen);
+        result = res.data;
       }
 
-      const blob = await resp.blob();
-      sdLogMsg('dim', `      Writing to SD card...`);
-
-      // Write to SD card via File System Access API
-      try {
-        const fileHandle = await dir.getFileHandle(name, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-      } catch(e) {
-        sdLogMsg('r', `❌ Failed to write ${name}: ${e.message}`);
-        sdLogMsg('dim', '   Make sure SD card is not write-protected');
-        sdLogMsg('dim', '   and has enough free space.');
-        return;
-      }
-
-      const basePct = 5 + ((i + 1) / SD_FILES.length) * 90;
-      sdBar(basePct);
-      sdLogMsg('g', `      ✓ ${name}`);
+      // Read CSW
+      const cswRes = await dev.transferIn(epIn, 13);
+      const csw = new DataView(cswRes.data.buffer);
+      return csw.getUint8(12) === 0 ? result : null;
     }
 
+    // ── 4. Verify device with INQUIRY ────────────────────────────
+    sdLogMsg('b', '🔍 Verifying SCSI device...');
+    const inquiryRes = await scsiExec(new Uint8Array([0x12, 0, 0, 0, 36, 0]).buffer, 36);
+    if (!inquiryRes) { sdLogMsg('r', '❌ INQUIRY failed'); return; }
+    const vendor = new TextDecoder().decode(inquiryRes.slice(8, 16)).replace(/\0/g,'');
+    const product = new TextDecoder().decode(inquiryRes.slice(16, 32)).replace(/\0/g,'');
+    sdLogMsg('g', `   ${vendor} ${product}`);
+
+    // ── 5. READ CAPACITY ─────────────────────────────────────────
+    sdLogMsg('b', '📏 Reading capacity...');
+    const capCdb = new Uint8Array([0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0]).buffer;
+    let capRes = await scsiExec(capCdb, 8);
+    if (!capRes) {
+      sdLogMsg('dim', '   Trying READ CAPACITY (16)...');
+      const cap16Cdb = new Uint8Array([0x9E, 0x10, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0]).buffer;
+      capRes = await scsiExec(cap16Cdb, 32);
+      if (capRes) {
+        const lba = new DataView(capRes.buffer).getBigUint64(0, false);
+        const bs = new DataView(capRes.buffer).getUint32(8, false);
+        sdLogMsg('g', `   ${Number(lba)+1} blocks × ${bs} bytes`);
+      }
+    } else {
+      const lba = new DataView(capRes.buffer).getUint32(0, false);
+      const bs = new DataView(capRes.buffer).getUint32(4, false);
+      sdLogMsg('g', `   ${lba+1} blocks × ${bs} bytes`);
+    }
+    if (!capRes) { sdLogMsg('r', '❌ READ CAPACITY failed'); return; }
+
+    // ── 6. Download + decompress + write image ───────────────────
+    sdLogMsg('b', '📥 Downloading PiBridge boot image (33 MB)...');
+    const imgResp = await fetch('pibridge-sd.img.gz');
+    if (!imgResp.ok) { sdLogMsg('r', '❌ Failed to download image'); return; }
+    
+    // Download entire .gz, then decompress in one shot
+    const gzBlob = await imgResp.blob();
+    const gzBuf = await gzBlob.arrayBuffer();
+    sdLogMsg('g', '✅ Downloaded, decompressing...');
+    
+    // Decompress gzip
+    const cs = new DecompressionStream('gzip');
+    const writer = cs.writable.getWriter();
+    writer.write(new Uint8Array(gzBuf));
+    writer.close();
+    const reader = cs.readable.getReader();
+    
+    // Read all decompressed data
+    const chunks = [];
+    let totalLen = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      totalLen += value.byteLength;
+    }
+    
+    // Combine into one Uint8Array
+    const image = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) {
+      image.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    
+    const totalBlocks = Math.ceil(image.length / 512);
+    sdLogMsg('g', `✅ Decompressed: ${(totalLen/1024/1024).toFixed(0)} MB, ${totalBlocks} blocks`);
+    sdLogMsg('b', '💾 Writing raw blocks to SD card...');
+
+    // Write blocks in batches of 128 blocks (64 KB per batch)
+    const BLOCK_SIZE = 512;
+    const BATCH_BLOCKS = 128;
+    for (let lba = 0; lba < totalBlocks; lba += BATCH_BLOCKS) {
+      const nBlocks = Math.min(BATCH_BLOCKS, totalBlocks - lba);
+      const data = image.slice(lba * BLOCK_SIZE, (lba + nBlocks) * BLOCK_SIZE);
+      
+      // SCSI WRITE10
+      const cdb = new ArrayBuffer(10);
+      const dv = new DataView(cdb);
+      dv.setUint8(0, 0x2A);              // WRITE10
+      dv.setUint32(2, lba, false);       // LBA (big-endian)
+      dv.setUint16(7, nBlocks, false);   // Transfer length
+      
+      const ok = await scsiExec(cdb, 0, data);
+      if (ok === null) {
+        sdLogMsg('r', `❌ WRITE10 failed at LBA ${lba}/${totalBlocks}`);
+        sdLogMsg('dim', '   SD card write-protected or too small.');
+        return;
+      }
+      
+      sdBar(5 + (lba / totalBlocks) * 90);
+    }
+
+    // ── 7. Done ──────────────────────────────────────────────────
     sdBar(100);
-    sdLogMsg('b', '🎉 All files written to SD card!');
-    sdLogMsg('dim', '⏳ Eject SD card safely, insert in Pi Zero W, and power on.');
-    sdLogMsg('dim', '⏳ Pi will boot and advertise as "PiBridge" via BLE in ~25s.');
-    sdLogMsg('dim', '⏳ Then click "Connect BLE" above.');
+    sdLogMsg('b', '🎉 Bootable SD card created!');
+    sdLogMsg('dim', '⏳ Eject safely, insert in Pi Zero W, power on.');
+    sdLogMsg('dim', '⏳ Pi boots and advertises as "PiBridge" via BLE in ~25s.');
+    sdLogMsg('dim', '⏳ Then click "Connect BLE" in the header.');
 
   } catch(e) {
-    sdLogMsg('r', '❌ ' + e.message);
+    sdLogMsg('r', '❌ ' + (e.message || e));
     sdBar(0);
   }
 };
