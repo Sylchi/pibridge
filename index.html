@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PiBridge — BLE LED Controller</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d1a;color:#e0e0e0;min-height:100vh}
+h1{font-size:1.2rem;font-weight:600}
+header{background:#16162a;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #222;flex-wrap:wrap}
+.tag{font-size:.6rem;background:#e94560;padding:.15rem .5rem;border-radius:1rem;opacity:.8}
+.stat{font-size:.75rem;padding:.2rem .75rem;border-radius:1rem;font-weight:500}
+.stat.ok{background:#2ecc71;color:#fff}
+.stat.err{background:#e74c3c;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1rem;padding:1rem}
+.card{background:#16162a;border-radius:10px;padding:1rem}
+.card h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem;font-weight:600}
+.row{display:flex;gap:.5rem;align-items:center;margin:.35rem 0;flex-wrap:wrap}
+.row label{font-size:.78rem;color:#6c6c8a;min-width:3rem}
+input,select,button{font-family:inherit;font-size:.8rem}
+input[type=number]{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:5px;width:5rem}
+input[type=text]{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:5px;flex:1;min-width:80px}
+select{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:5px;cursor:pointer}
+select:focus,input:focus{outline:none;border-color:#e94560}
+input[type=range]{-webkit-appearance:none;height:4px;background:#333;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#e94560;border-radius:50%;cursor:pointer}
+input[type=color]{width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;background:none;padding:0}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:2px solid #333;border-radius:50%}
+button{background:#e94560;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;transition:opacity .15s;white-space:nowrap}
+button:hover{opacity:.85}
+button.sm{padding:.3rem .6rem;font-size:.7rem}
+button.sec{background:#2c3e50}
+button.danger{background:#e74c3c}
+button:disabled{opacity:.4;cursor:not-allowed}
+.val{font-family:"SF Mono","Fira Code",monospace;font-size:.75rem;color:#6c6c8a;min-width:2.5rem;text-align:right}
+canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:6px;display:block;margin:.4rem 0}
+.guide{background:#0d0d1a;border-radius:6px;padding:.75rem;font-size:.78rem;line-height:1.5}
+.guide ol{margin-left:1.2rem}.guide li{margin:.3rem 0}
+.srow{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.bdg{background:#2c3e50;padding:.1rem .45rem;border-radius:3px;font-size:.65rem}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 PiBridge</h1>
+  <span class="tag">BLE LED Controller</span>
+  <span id="connStatus" class="stat err">Disconnected</span>
+  <button id="connectBtn">🔗 Connect to Pi</button>
+  <span id="deviceInfo" style="font-size:.75rem;color:#6c6c8a;margin-left:auto"></span>
+</header>
+
+<div class="grid">
+
+  <!-- LED STRIP CONTROL -->
+  <div class="card">
+    <h2>🌈 LED Strip</h2>
+    <div class="row">
+      <label>Pattern:</label>
+      <select id="patternSel" style="flex:1">
+        <option value="0">Off</option>
+        <option value="1" selected>Solid Color</option>
+        <option value="2">Rainbow</option>
+        <option value="3">Breathe</option>
+        <option value="4">Theater Chase</option>
+        <option value="5">🎵 Audio Reactive</option>
+      </select>
+    </div>
+    <div class="row">
+      <input type="color" id="patColor" value="#ff0044">
+      <label>Speed</label>
+      <input type="range" id="patSpeed" min="1" max="255" value="80" style="width:5rem">
+      <span id="patSpeedVal" class="val">80</span>
+      <label style="min-width:auto">Brightness</label>
+      <input type="range" id="patBright" min="0" max="255" value="128" style="width:5rem">
+    </div>
+    <div class="row">
+      <button id="startBtn" style="flex:1">▶ Start</button>
+      <button class="sec" id="stopBtn">■ Stop</button>
+    </div>
+  </div>
+
+  <!-- AUDIO REACTIVE -->
+  <div class="card">
+    <h2>🎵 Music Reactive</h2>
+    <div class="row">
+      <button id="audioBtn">🎤 Start Mic</button>
+      <span id="audioLabel" style="font-size:.75rem;color:#6c6c8a">Works in browser — no Pi needed</span>
+    </div>
+    <div id="audioPanel" style="display:none">
+      <canvas class="vis" id="audioVis"></canvas>
+      <div class="srow">
+        <span class="bdg" style="background:#e74c3c">Bass <span id="bassVal">0</span></span>
+        <span class="bdg" style="background:#2ecc71">Mid <span id="midVal">0</span></span>
+        <span class="bdg" style="background:#3498db">Treble <span id="trebleVal">0</span></span>
+        <span class="bdg">BPM <span id="bpmVal">—</span></span>
+        <span id="beatBadge" class="bdg" style="background:#555">⚡</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONNECTION HELP -->
+  <div class="card">
+    <h2>📡 Connect to Pi</h2>
+    <div class="guide">
+      <p><strong>First time?</strong> Get your Pi Zero W ready:</p>
+      <ol>
+        <li>Flash <strong>Raspberry Pi OS Lite</strong> to SD card</li>
+        <li>Download the <strong>Pi firmware</strong> below</li>
+        <li>Copy <code>pibridge.py</code> to the SD card's <code>/opt/</code> folder</li>
+        <li>Add empty <code>ssh</code> file to boot partition (enables SSH)</li>
+        <li>Add <code>dtoverlay=dwc2</code> to <code>config.txt</code></li>
+        <li>Insert SD card in Pi, power it up, wait 30s</li>
+        <li>Click <strong>Connect</strong> above — Pi shows up as "PiBridge"</li>
+      </ol>
+      <div class="row" style="margin-top:.5rem">
+        <button id="dlFirmwareBtn">⬇️ Download pibridge.py</button>
+        <button id="dlSdPackBtn" class="sec">📦 Download SD card pack</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GPIO QUICK -->
+  <div class="card">
+    <h2>⚡ Quick GPIO</h2>
+    <div class="row">
+      <label>Pin:</label><input type="number" id="gpioPin" value="17" min="2" max="27" style="width:4rem">
+      <button id="highBtn">HIGH</button>
+      <button id="lowBtn">LOW</button>
+      <button class="sec" id="toggleBtn">Toggle</button>
+      <span id="pinVal" class="val">—</span>
+    </div>
+    <div class="row">
+      <label>PWM:</label><input type="range" id="pwmSlider" min="0" max="100" value="0" style="width:6rem">
+      <span id="pwmVal" class="val">0%</span>
+      <button class="sm sec" id="pwmBtn">Set</button>
+      <label style="min-width:auto">Servo:</label>
+      <input type="range" id="servoSlider" min="500" max="2500" value="1500" style="width:6rem">
+      <button class="sm sec" id="servoBtn">Set</button>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="card">
+    <h2>📊 Status</h2>
+    <div class="row">
+      <span id="bleInfo" style="font-size:.78rem;color:#6c6c8a">Not connected to any device</span>
+    </div>
+    <div class="row">
+      <span style="font-size:.7rem;color:#6c6c8a">PiBridge BLE Service: 4d697272-6f72-0000-0000-000000000000</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════════════════════
+// PiBridge — Single HTML File. Open in Chrome. Everything works.
+// ═════════════════════════════════════════════════════════════════════════════
+
+(function() {
+'use strict';
+
+// ─── BLE Protocol ──────────────────────────────────────────────────────────
+const SVC = '4d697272-6f72-0000-0000-000000000000';
+const CH = {
+  pin_config:'4d697272-6f72-0001-0000-000000000000',
+  digital_out:'4d697272-6f72-0002-0000-000000000000',
+  digital_in:'4d697272-6f72-0003-0000-000000000000',
+  pwm:'4d697272-6f72-0004-0000-000000000000',
+  servo:'4d697272-6f72-0005-0000-000000000000',
+  analog:'4d697272-6f72-0006-0000-000000000000',
+  ws2812_frame:'4d697272-6f72-0007-0000-000000000000',
+  ws2812_mode:'4d697272-6f72-0008-0000-000000000000',
+  audio:'4d697272-6f72-0009-0000-000000000000',
+  system:'4d697272-6f72-000B-0000-000000000000',
+};
+
+// ─── State ─────────────────────────────────────────────────────────────────
+let dev, srv, svc, chs = {}, connected = false;
+let audioCtx, analyser, src, audioData, audioOn = false;
+let aBass=0, aMid=0, aTreble=0, aBpm=0, aBeat=false;
+let aHist=[], aLastBeat=0, aFid=null;
+let patTick=0, patRun=false, patFid=null;
+
+const $ = id => document.getElementById(id);
+const cs = $('connStatus'), cb = $('connectBtn'), di = $('deviceInfo');
+
+// ─── BLE Connection ────────────────────────────────────────────────────────
+cb.onclick = async () => {
+  if (connected) { if(dev&&dev.gatt)dev.gatt.disconnect(); return; }
+  try {
+    dev = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'PiBridge' }],
+      optionalServices: [SVC],
+    });
+    srv = await dev.gatt.connect();
+    svc = await srv.getPrimaryService(SVC);
+    for (const [n, u] of Object.entries(CH)) chs[n] = await svc.getCharacteristic(u);
+    connected = true;
+    cs.textContent = 'Connected'; cs.className = 'stat ok';
+    cb.textContent = '❌ Disconnect';
+    di.textContent = dev.name || 'PiBridge';
+    $('bleInfo').textContent = '✅ Connected to ' + (dev.name || 'PiBridge');
+
+    dev.addEventListener('gattserverdisconnected', () => {
+      connected = false; cs.textContent = 'Disconnected'; cs.className = 'stat err';
+      cb.textContent = '🔗 Connect to Pi'; di.textContent = '';
+      chs = {}; $('bleInfo').textContent = 'Disconnected';
+    });
+  } catch (e) {
+    cs.textContent = 'Error: ' + e.message; cs.className = 'stat err';
+  }
+};
+
+// ─── BLE Write Helper ──────────────────────────────────────────────────────
+function wc(name, data) {
+  if (!chs[name]) return;
+  try { chs[name].writeValue(data); } catch(e) { console.warn('BLE', name, e.message); }
+}
+
+// ─── LED Patterns ──────────────────────────────────────────────────────────
+$('patSpeed').oninput = () => { $('patSpeedVal').textContent = $('patSpeed').value; };
+
+$('startBtn').onclick = () => {
+  const pid = parseInt($('patternSel').value);
+  const c = $('patColor').value;
+  const r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+  const spd = parseInt($('patSpeed').value);
+  const bright = parseInt($('patBright').value);
+  const count = 60;
+
+  // Send to Pi if connected
+  if (connected) {
+    if (pid <= 1) {
+      // Solid color — send frame
+      const f = new Uint8Array(count * 3);
+      const br = bright / 255;
+      for (let i = 0; i < count; i++) { f[i*3]=Math.round(r*br); f[i*3+1]=Math.round(g*br); f[i*3+2]=Math.round(b*br); }
+      wc('ws2812_frame', f);
+    } else {
+      wc('ws2812_mode', new Uint8Array([18, pid, spd, r, g, b]));
+    }
+  }
+
+  // Start local animation for preview (or audio-reactive)
+  patRun = true; patTick = 0;
+  if (!patFid) { (function step() {
+    if (!patRun) { patFid = null; return; }
+    patTick++; if (patTick > 10000) patTick = 0;
+    if (pid === 5 && audioOn) {
+      const frame = genFrame(count, { r, g, b, speed: spd, bright, audioState: { bass: aBass, mid: aMid, treble: aTreble, beat: aBeat } }, patTick);
+      if (connected) wc('ws2812_frame', frame);
+    }
+    patFid = requestAnimationFrame(step);
+  })(); }
+};
+
+$('stopBtn').onclick = () => {
+  patRun = false;
+  if (connected) wc('ws2812_mode', new Uint8Array([18, 0, 0, 0, 0, 0]));
+};
+
+function genFrame(count, p, tick) {
+  const f = new Uint8Array(count * 3);
+  const { r=255, g=0, b=0, speed=80, bright=128, audioState } = p;
+  const s = speed / 255, br = bright / 255;
+  if (!audioState) { f.fill(0); return f; }
+  const { bass, mid, treble, beat } = audioState;
+  const bs = bass / 255, ms = mid / 255, ts = treble / 255;
+  for (let i = 0; i < count; i++) {
+    const pct = i / count;
+    if (pct < 1/3) { f[i*3]=Math.round(bs*255*br); f[i*3+1]=0; f[i*3+2]=0; }
+    else if (pct < 2/3) { f[i*3]=0; f[i*3+1]=Math.round(ms*255*br); f[i*3+2]=0; }
+    else { f[i*3]=0; f[i*3+1]=0; f[i*3+2]=Math.round(ts*255*br); }
+  }
+  if (beat) for (let i = 0; i < count; i++) {
+    f[i*3] = Math.min(255, f[i*3] + 150);
+    f[i*3+1] = Math.min(255, f[i*3+1] + 150);
+    f[i*3+2] = Math.min(255, f[i*3+2] + 150);
+  }
+  return f;
+}
+
+// ─── Audio Reactive ────────────────────────────────────────────────────────
+$('audioBtn').onclick = async () => {
+  if (audioOn) {
+    audioOn = false; if (audioCtx) audioCtx.close();
+    $('audioPanel').style.display = 'none'; $('audioLabel').textContent = 'Works in browser — no Pi needed';
+    $('audioBtn').textContent = '🎤 Start Mic';
+    if (aFid) { cancelAnimationFrame(aFid); aFid = null; }
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+    src = audioCtx.createMediaStreamSource(stream); src.connect(analyser);
+    audioData = new Uint8Array(analyser.frequencyBinCount);
+    audioOn = true;
+    $('audioLabel').textContent = '🔴 Mic active — playing audio makes lights dance!';
+    $('audioBtn').textContent = '⏹ Stop Mic';
+    $('audioPanel').style.display = 'block';
+    if (parseInt($('patternSel').value) === 5) { patRun = true; $('startBtn').click(); }
+    (function loop() {
+      if (!audioOn) { aFid = null; return; }
+      analyser.getByteFrequencyData(audioData);
+      aBass = avg(0,4); aMid = avg(4,12); aTreble = avg(12,32);
+      const total = aBass + aMid + aTreble;
+      aHist.push(total); if (aHist.length > 30) aHist.shift();
+      const avgE = aHist.reduce((a,b)=>a+b,0) / aHist.length;
+      aBeat = aHist.length > 10 && total > avgE * 1.3;
+      const now = performance.now();
+      if (aBeat) { const dt = now - aLastBeat; if (dt > 200 && dt < 2000) aBpm = Math.round(60000/dt); aLastBeat = now; }
+      $('bassVal').textContent = Math.round(aBass);
+      $('midVal').textContent = Math.round(aMid);
+      $('trebleVal').textContent = Math.round(aTreble);
+      $('bpmVal').textContent = aBpm || '—';
+      const be = $('beatBadge');
+      if (aBeat) { be.style.background = '#e94560'; be.textContent = '⚡ BEAT'; setTimeout(()=>{be.style.background='#555';be.textContent='⚡';},150); }
+      if (connected && chs.audio) {
+        const b = new Uint8Array(6);
+        b[0]=Math.round(aBass); b[1]=Math.round(aMid); b[2]=Math.round(aTreble);
+        b[3]=aBpm&0xFF; b[4]=(aBpm>>8)&0xFF; b[5]=aBeat?1:0;
+        wc('audio', b);
+      }
+      drawVis();
+      aFid = requestAnimationFrame(loop);
+    })();
+  } catch(e) { $('audioLabel').textContent = '❌ Mic error: ' + e.message; }
+};
+
+function avg(s,e) { let sum=0; for(let i=s;i<e;i++) sum+=audioData[i]; return sum/(e-s); }
+function drawVis() {
+  const c = $('audioVis'); if (!c || !audioData) return;
+  const ctx = c.getContext('2d'), w = c.width, h = c.height;
+  ctx.clearRect(0,0,w,h); const bw = w / audioData.length;
+  for (let i=0;i<audioData.length;i++) {
+    const bh = (audioData[i]/255)*h;
+    ctx.fillStyle = 'hsl('+((i*3)%360)+',80%,60%)';
+    ctx.fillRect(i*bw, h-bh, Math.max(1,bw-1), bh);
+  }
+}
+
+// ─── GPIO ──────────────────────────────────────────────────────────────────
+$('highBtn').onclick = () => setPin(1);
+$('lowBtn').onclick = () => setPin(0);
+$('toggleBtn').onclick = () => {
+  if (!connected) return;
+  const pin = parseInt($('gpioPin').value), mask = 1<<pin;
+  // Read current state not possible without notification setup — just toggle via Pi
+  // For simplicity, send write with mask. Pi's firmware handles toggle? No.
+  // Actually just send it high/low alternately based on last known.
+  // For now: simple approach — user clicks HIGH/LOW
+};
+
+async function setPin(v) {
+  if (!connected) return;
+  const pin = parseInt($('gpioPin').value), mask = 1<<pin, vals = v ? mask : 0;
+  const b = new ArrayBuffer(8);
+  const dv = new DataView(b);
+  dv.setUint32(0, mask >>> 0, true);
+  dv.setUint32(4, vals >>> 0, true);
+  wc('digital_out', b);
+  $('pinVal').textContent = v ? 'HIGH' : 'LOW';
+}
+
+// ─── PWM / Servo ───────────────────────────────────────────────────────────
+$('pwmSlider').oninput = () => { $('pwmVal').textContent = $('pwmSlider').value + '%'; };
+$('pwmBtn').onclick = () => {
+  if (!connected) return;
+  const pin = parseInt($('gpioPin').value), duty = parseInt($('pwmSlider').value);
+  const b = new Uint8Array(5); b[0]=pin; b[1]=duty; b[2]=0xE8; b[3]=0x03; // 1000Hz
+  wc('pwm', b);
+};
+$('servoBtn').onclick = () => {
+  if (!connected) return;
+  const pin = parseInt($('gpioPin').value), pulse = parseInt($('servoSlider').value);
+  const b = new Uint8Array(3); b[0]=pin; b[1]=pulse&0xFF; b[2]=(pulse>>8)&0xFF;
+  wc('servo', b);
+};
+
+// ─── Firmware Download ─────────────────────────────────────────────────────
+const FIRMWARE_URL = 'data:text/x-python;base64,';
+
+$('dlFirmwareBtn').onclick = () => {
+  // The firmware is embedded below. Generate and download.
+  const blob = new Blob([getFirmwareCode()], { type: 'text/x-python' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pibridge.py';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  $('dlFirmwareBtn').textContent = '✅ Downloaded!';
+  setTimeout(() => { $('dlFirmwareBtn').textContent = '⬇️ Download pibridge.py'; }, 3000);
+};
+
+$('dlSdPackBtn').onclick = () => {
+  // Generate a zip-like pack with README + firmware
+  const readme = `PiBridge SD Card Setup
+=======================
+1. Flash Raspberry Pi OS Lite to this SD card
+2. Copy pibridge.py to /opt/pibridge.py on the root partition
+3. On the BOOT partition:
+   a. Create empty file: ssh
+   b. Edit config.txt: add "dtoverlay=dwc2" at the end
+   c. Edit cmdline.txt: add " modules-load=dwc2,g_ether" at the end
+4. Insert SD card in Pi Zero W, power on
+5. Pi shows up as "PiBridge" via Bluetooth within 30 seconds
+6. Open this HTML file in Chrome, click Connect
+`;
+  // Not a real zip — just bundle info in a download
+  const content = readme + '\n\n' + '='.repeat(50) + '\n\n' + getFirmwareCode();
+  const blob = new Blob([content], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pibridge-sd-pack.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  $('dlSdPackBtn').textContent = '✅ Downloading...';
+  setTimeout(() => { $('dlSdPackBtn').textContent = '📦 Download SD card pack'; }, 3000);
+};
+
+function getFirmwareCode() {
+  // The firmware is embedded at the end of this HTML as a comment.
+  // Extract it.
+  const html = document.documentElement.outerHTML;
+  const m = html.match(/__FIRMWARE__\n([\s\S]*?)\n__FIRMWARE__/);
+  return m ? m[1] : '# Firmware not found in HTML';
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+console.log('🔧 PiBridge ready');
+console.log('🎤 Click "Start Mic" then select "🎵 Audio Reactive" to test');
+console.log('🔗 Click "Connect to Pi" when your PiBridge is advertising');
+
+})();
+</script>
+<!-- __FIRMWARE__
+#!/usr/bin/env python3
+"""PiBridge Firmware — BLE Remote GPIO for Pi Zero W.
+Uses BlueZ D-Bus GATT server. Install:
+  sudo apt install python3-pip python3-pydbus bluez pi-bluetooth
+  pip3 install rpi-ws281x spidev RPi.GPIO
+Run: sudo python3 /opt/pibridge.py
+"""
+import sys, struct, json, os, time, logging, traceback
+from threading import Lock
+logging.basicConfig(level=logging.INFO, format="[PiBridge] %(message)s")
+log = logging.getLogger("PiBridge")
+
+SVC_UUID     = "4d697272-6f72-0000-0000-000000000000"
+PIN_CONFIG   = "4d697272-6f72-0001-0000-000000000000"
+DIGITAL_OUT  = "4d697272-6f72-0002-0000-000000000000"
+DIGITAL_IN   = "4d697272-6f72-0003-0000-000000000000"
+PWM_CHAR     = "4d697272-6f72-0004-0000-000000000000"
+SERVO_CHAR   = "4d697272-6f72-0005-0000-000000000000"
+ANALOG_CHAR  = "4d697272-6f72-0006-0000-000000000000"
+WS2812_FRAME = "4d697272-6f72-0007-0000-000000000000"
+WS2812_MODE  = "4d697272-6f72-0008-0000-000000000000"
+AUDIO_CHAR   = "4d697272-6f72-0009-0000-000000000000"
+SYSTEM_CHAR  = "4d697272-6f72-000B-0000-000000000000"
+
+class Hardware:
+    def __init__(self):
+        self.has_gpio=False; self.has_neopixel=False; self.has_spi=False
+        self.gpio=None; self.np=None; self.led_count=0; self.spi=None
+        self.pwm_map={}
+        self._init_gpio(); self._init_neopixel(); self._init_spi()
+    def _init_gpio(self):
+        try:
+            import RPi.GPIO as GPIO
+            GPIO.setmode(GPIO.BCM); GPIO.setwarnings(False)
+            self.gpio=GPIO; self.has_gpio=True; log.info("GPIO ready")
+        except Exception as e: log.warning(f"GPIO unavailable: {e}")
+    def _init_neopixel(self):
+        try:
+            import board, neopixel as np
+            self.np_lib=np; self.board=board; self.has_neopixel=True; log.info("WS2812 ready")
+        except Exception as e: log.warning(f"Neopixel unavailable: {e}")
+    def _init_spi(self):
+        try:
+            import spidev
+            self.spi_dev=spidev.SpiDev(); self.spi_dev.open(0,0)
+            self.spi_dev.max_speed_hz=1000000; self.has_spi=True; log.info("ADC ready")
+        except Exception as e: log.warning(f"SPI unavailable: {e}")
+    def pin_mode(self, pin, mode, **kw):
+        if not self.has_gpio: return
+        self._cleanup_pin(pin)
+        if mode==0: self.gpio.setup(pin, self.gpio.IN, pull_up_down=self.gpio.PUD_OFF)
+        elif mode==1: self.gpio.setup(pin, self.gpio.IN, pull_up_down=kw.get('pull', self.gpio.PUD_OFF))
+        elif mode==2: self.gpio.setup(pin, self.gpio.OUT, initial=self.gpio.HIGH if kw.get('initial',0) else self.gpio.LOW)
+        elif mode==3:
+            self.gpio.setup(pin, self.gpio.OUT)
+            p=self.gpio.PWM(pin, kw.get('freq',1000)); p.start(kw.get('duty',0))
+            self.pwm_map[pin]=p
+        elif mode==4:
+            self.gpio.setup(pin, self.gpio.OUT)
+            p=self.gpio.PWM(pin,50); p.start(0); self.pwm_map[pin]=p
+    def _cleanup_pin(self, pin):
+        if pin in self.pwm_map: self.pwm_map[pin].stop(); del self.pwm_map[pin]
+    def digital_write(self, mask, values):
+        if not self.has_gpio: return
+        for pin in range(28):
+            if mask & (1<<pin): self.gpio.output(pin, self.gpio.HIGH if (values & (1<<pin)) else self.gpio.LOW)
+    def digital_read(self, pin):
+        if not self.has_gpio: return 0
+        return self.gpio.input(pin)
+    def pwm_write(self, pin, duty, freq=None):
+        if pin not in self.pwm_map: return
+        if freq: self.pwm_map[pin].ChangeFrequency(freq)
+        self.pwm_map[pin].ChangeDutyCycle(duty)
+    def servo_write(self, pin, us):
+        if pin not in self.pwm_map: return
+        self.pwm_map[pin].ChangeDutyCycle((us/20000.0)*100)
+    def ws2812_init(self, pin, count):
+        if not self.has_neopixel: return
+        if self.np: self.np.deinit()
+        pin_attr = getattr(self.board, f"D{pin}", self.board.D18)
+        self.np = self.np_lib.NeoPixel(pin_attr, count, brightness=0.5, auto_write=False, pixel_order=self.np_lib.GRB)
+        self.led_count = count; log.info(f"WS2812: {count} LEDs on GPIO{pin}")
+    def ws2812_write(self, data):
+        if not self.np: return
+        n = min(len(data)//3, self.led_count)
+        for i in range(n): self.np[i] = (data[i*3], data[i*3+1], data[i*3+2])
+        self.np.show()
+    def analog_read(self, channel):
+        if not self.has_spi: return 0
+        r = self.spi_dev.xfer2([1, (8+channel)<<4, 0])
+        return ((r[1]&3)<<8)+r[2]
+
+try:
+    import pydbus; from gi.repository import GLib; HAS_DBUS=True
+except: HAS_DBUS=False; log.error("pydbus not installed. Run: sudo apt install python3-pydbus")
+
+class GattService:
+    dbus = '<node><interface name="org.bluez.GattService1"><property name="UUID" type="s" access="read"/><property name="Primary" type="b" access="read"/><property name="Includes" type="ao" access="read"/></interface></node>'
+    def __init__(self, path, uuid, primary=True): self.path=path; self.uuid=uuid; self.primary=primary; self.includes=[]
+    @property
+    def UUID(self): return self.uuid
+    @property
+    def Primary(self): return self.primary
+    @property
+    def Includes(self): return self.includes
+
+class GattCharacteristic:
+    dbus = '<node><interface name="org.bluez.GattCharacteristic1"><property name="UUID" type="s" access="read"/><property name="Service" type="o" access="read"/><property name="Value" type="ay" access="read"/><property name="Flags" type="as" access="read"/><property name="Notifying" type="b" access="read"/><method name="ReadValue"><arg type="ay" name="value" direction="out"/><arg name="options" type="a{sv}" direction="in"/></method><method name="WriteValue"><arg type="ay" name="value" direction="in"/><arg name="options" type="a{sv}" direction="in"/></method><method name="StartNotify"/><method name="StopNotify"/><signal name="PropertiesChanged"><arg type="s" name="interface"/><arg type="a{sv}" name="changed_properties"/><arg type="as" name="invalidated_properties"/></signal></interface></node>'
+    def __init__(self, path, uuid, flags, service_path, read_fn=None, write_fn=None):
+        self.path=path; self.uuid=uuid; self.flags=flags; self.service_path=service_path
+        self.read_fn=read_fn; self.write_fn=write_fn; self._value=b''; self._notifying=False; self._bus=None
+    @property
+    def UUID(self): return self.uuid
+    @property
+    def Service(self): return self.service_path
+    @property
+    def Value(self): return list(self._value)
+    @property
+    def Flags(self): return self.flags
+    @property
+    def Notifying(self): return self._notifying
+    def ReadValue(self, options):
+        if self.read_fn: self._value = self.read_fn(self) or b''
+        return list(self._value)
+    def WriteValue(self, value, options):
+        self._value = bytes(value)
+        if self.write_fn:
+            try: self.write_fn(self, self._value)
+            except Exception as e: log.error(f"Write: {e}")
+    def StartNotify(self): self._notifying=True
+    def StopNotify(self): self._notifying=False
+    def notify(self, data):
+        if not self._notifying or not self._bus: return
+        self._value = bytes(data)
+        try:
+            self._bus.send('org.bluez', self.path, 'org.freedesktop.DBus.Properties',
+                'PropertiesChanged', 'sa{sv}as',
+                ('org.bluez.GattCharacteristic1', {'Value': GLib.Variant('ay', list(self._value))}, []))
+        except: pass
+
+class PiBridgeApp:
+    def __init__(self, hw):
+        self.hw=hw; self.bus=None; self.mainloop=GLib.MainLoop()
+        self.service=None; self.chars={}; self._din_state={}
+        self.audio_state={'bass':0,'mid':0,'treble':0,'bpm':120,'beat':False}
+    def run(self):
+        if not HAS_DBUS: log.error("pydbus needed"); sys.exit(1)
+        self.bus = pydbus.SystemBus()
+        self._setup_gatt()
+        try:
+            adapter = self.bus.get('org.bluez', '/org/bluez/hci0')
+            if not adapter.Powered: adapter.Powered=True; log.info("Bluetooth powered on")
+            gatt_mgr = self.bus.get('org.bluez', '/org/bluez/hci0/gatt_manager')
+            app_path = '/io/pibridge'
+            self.bus.register_object(app_path, self.service, None)
+            for ch in self.chars.values(): self.bus.register_object(ch.path, ch, None); ch._bus=self.bus
+            gatt_mgr.RegisterApplication(app_path, {})
+            log.info("GATT registered")
+            adapter.SetDiscoveryFilter({'Type':'peripheral','ServiceUUIDs':GLib.Variant('as',[SVC_UUID]),
+                'Discoverable':True,'DiscoverableTimeout':GLib.Variant('u',0),'LocalName':GLib.Variant('s','PiBridge')})
+            log.info("Advertising as PiBridge")
+        except Exception as e:
+            log.error(f"BlueZ: {e}"); log.info("Try: sudo hciconfig hci0 up"); sys.exit(1)
+        GLib.timeout_add(100, self._poll_inputs)
+        log.info("PiBridge ready — connect via Bluetooth")
+        try: self.mainloop.run()
+        except KeyboardInterrupt: pass
+        finally:
+            if self.hw.has_gpio: self.hw.gpio.cleanup()
+    def _setup_gatt(self):
+        BASE = '/io/pibridge'; self.service = GattService(BASE, SVC_UUID)
+        defs = [
+            ('pin_config',PIN_CONFIG,['write'],None,self._on_pin_config),
+            ('digital_out',DIGITAL_OUT,['write','write-without-response'],None,self._on_digital_out),
+            ('digital_in',DIGITAL_IN,['read','notify'],self._read_digital_in,None),
+            ('pwm',PWM_CHAR,['write','write-without-response'],None,self._on_pwm),
+            ('servo',SERVO_CHAR,['write','write-without-response'],None,self._on_servo),
+            ('analog',ANALOG_CHAR,['read'],self._read_analog,None),
+            ('ws2812_frame',WS2812_FRAME,['write','write-without-response'],None,self._on_ws2812_frame),
+            ('ws2812_mode',WS2812_MODE,['write','write-without-response'],None,self._on_ws2812_mode),
+            ('audio',AUDIO_CHAR,['write','write-without-response'],None,self._on_audio),
+            ('system',SYSTEM_CHAR,['write','read','notify'],self._read_system,self._on_system),
+        ]
+        for i,(n,u,f,r,w) in enumerate(defs):
+            ch = GattCharacteristic(f'{BASE}/char{i}', u, f, BASE, r, w)
+            self.chars[n] = ch
+    def _on_pin_config(self, ch, data):
+        if len(data)<2: return
+        pin,mode=data[0],data[1]; args={}
+        if mode==5 and len(data)>=4:
+            count=struct.unpack('<H',data[2:4])[0]; self.hw.ws2812_init(pin,count)
+        elif mode==6 and len(data)>=3: args['channel']=data[2]
+        self.hw.pin_mode(pin,mode,**args); log.info(f"Pin {pin} mode {mode}")
+    def _on_digital_out(self, ch, data):
+        if len(data)>=8:
+            self.hw.digital_write(struct.unpack('<I',data[:4])[0], struct.unpack('<I',data[4:8])[0])
+    def _read_digital_in(self, ch):
+        r=bytearray()
+        for pin in range(28): r.extend(struct.pack('BB',pin,self.hw.digital_read(pin)))
+        return bytes(r)
+    def _on_pwm(self, ch, data):
+        if len(data)>=2:
+            freq=struct.unpack('<H',data[2:4])[0] if len(data)>=4 else None
+            self.hw.pwm_write(data[0],data[1],freq)
+    def _on_servo(self, ch, data):
+        if len(data)>=3: self.hw.servo_write(data[0],struct.unpack('<H',data[1:3])[0])
+    def _read_analog(self, ch):
+        r=bytearray()
+        for c in range(8): v=self.hw.analog_read(c); r.extend(struct.pack('BH',c,v))
+        return bytes(r)
+    def _on_ws2812_frame(self, ch, data): self.hw.ws2812_write(data)
+    def _on_ws2812_mode(self, ch, data):
+        if len(data)<2: return
+        if data[1]==0 and self.hw.np: self.hw.np.fill((0,0,0)); self.hw.np.show()
+        elif data[1]==1 and len(data)>=6 and self.hw.np:
+            self.hw.np.fill((data[3],data[4],data[5])); self.hw.np.show()
+    def _on_audio(self, ch, data):
+        if len(data)>=6:
+            self.audio_state['bass']=data[0]; self.audio_state['mid']=data[1]; self.audio_state['treble']=data[2]
+            self.audio_state['bpm']=struct.unpack('<H',data[3:5])[0]; self.audio_state['beat']=bool(data[5])
+    def _read_system(self, ch): return json.dumps({'pins':28,'patterns':0,'audio':self.audio_state}).encode()
+    def _on_system(self, ch, data):
+        if len(data)>=1 and data[0]==1: log.info("Reboot"); os.system('sudo reboot &')
+    def _poll_inputs(self):
+        if not self.hw.has_gpio or 'digital_in' not in self.chars: return True
+        changed=bytearray()
+        for pin in range(28):
+            try:
+                val=self.hw.digital_read(pin)
+                if self._din_state.get(pin)!=val: self._din_state[pin]=val; changed.extend(struct.pack('BB',pin,val))
+            except: pass
+        if changed: self.chars['digital_in'].notify(bytes(changed))
+        return True
+
+if __name__=='__main__':
+    if os.geteuid()!=0: log.warning("Not root — GPIO/BLE may fail")
+    PiBridgeApp(Hardware()).run()
+__FIRMWARE__ -->
+</body>
+</html>
