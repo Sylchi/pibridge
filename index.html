@@ -78,7 +78,7 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
     </div>
 
     <div id="piStatus" style="font-size:.72rem;color:#6c6c8a;margin-top:.3rem">
-      1) Flash without SD card. 2) Insert SD card after boot. 3) Standalone forever.
+      Pi must have NO SD card. Appears as Broadcom BCM2708 Boot (0a5c:2763). Chrome/Edge.
     </div>
   </div>
 
@@ -158,13 +158,11 @@ const $=id=>document.getElementById(id);
 // ═══════════════════════════════════════════════════════════════════════
 // 1. ONE-CLICK FLASH — WebUSB to Pi Zero W boot ROM
 // ═══════════════════════════════════════════════════════════════════════
-// Pi Zero W in boot mode enumerates as VID 0x1d50, PID 0x6042.
-// Protocol: send 0x01 start signal, then bootcode.bin (52KB).
-// Pi resets and re-enumerates as 0x1d50, then we send start.elf,
-// config.txt, cmdline.txt, kernel.img, initramfs.gz.
+// Pi Zero W boot: Stage 1 = Broadcom BCM2708 Boot (0a5c:2763)
+// Stage 2 (after bootcode.bin) = 1d50:6042
+// Protocol: send 0x01 start signal, then bootcode.bin.
+// Pi resets and re-enumerates. Then send remaining files.
 // Pi boots initramfs from RAM — no SD card needed.
-
-const RPI_VID = 0x1d50;
 let piDev = null, fl = $('fl'), isFlashing = false;
 
 function log(cls, msg) {
@@ -210,23 +208,23 @@ $('goBtn').onclick = async () => {
       throw new Error('abort');
     }
 
-    // === Step 1: Find Pi in boot mode ===
-    log('b', '🔍 Looking for Pi Zero W in boot mode...');
+    // ─── Stage 1: Broadcom BCM2708 Boot (0a5c:2763) ────────────
+    log('b', '🔍 Looking for Pi Zero W in boot mode (Broadcom 0a5c)...');
     let devs = await navigator.usb.getDevices();
-    let dev = devs.find(d => d.vendorId === RPI_VID);
+    let dev = devs.find(d => d.vendorId === 0x0a5c);
 
     if (!dev) {
-      log('dim', '   No Pi found yet. Requesting device...');
+      log('dim', '   No Pi found yet. Opening device picker...');
       try {
         dev = await navigator.usb.requestDevice({
-          filters: [{ vendorId: RPI_VID }]
+          filters: [{ vendorId: 0x0a5c }]  // Broadcom BCM2708 Boot
         });
       } catch(e) {
         if (e.name === 'NotFoundError') {
-          log('r', '❌ No Pi detected. Make sure it is connected via USB.');
-          log('dim', '   • Connect Pi Zero W to the USB port (side port)');
-          log('dim', '   • Power on the Pi (if using separate power)');
-          log('dim', '   • The Pi shows up as vendor ID 0x1d50 in boot mode');
+          log('r', '❌ No Pi detected.');
+          log('dim', '   Make sure Pi Zero W has NO SD card inserted,');
+          log('dim', '   is connected via USB (side port), and powered on.');
+          log('dim', '   It should appear as "Broadcom BCM2708 Boot"');
           throw new Error('abort');
         }
         throw e;
@@ -235,7 +233,7 @@ $('goBtn').onclick = async () => {
 
     if (!dev) { log('r', 'No Pi found'); throw new Error('abort'); }
     piDev = dev;
-    log('g', '✅ Pi Zero W detected in boot mode!');
+    log('g', '✅ Pi Zero W detected in boot mode (Broadcom BCM2708 Boot)!');
 
     // Open and claim interface
     await dev.open();
@@ -255,14 +253,31 @@ $('goBtn').onclick = async () => {
     await sendFile(dev, bc, (sent, total) => {
       bar(5 + (sent / total) * 10);
     });
-    log('g', '✅ bootcode.bin sent — Pi will reset');
+    log('g', '✅ bootcode.bin sent — Pi will reset and re-enumerate');
     bar(15);
 
     // Close and wait for re-detection
     try { dev.close(); } catch(e) {}
-    log('dim', '⏳ Waiting for Pi to re-appear (8s)...');
-    log('dim', '   The Pi will disconnect and reconnect as a new USB device.');
+    log('dim', '⏳ Waiting for Pi to re-appear as 0x1d50 (8s)...');
+    log('dim', '   After bootcode.bin, the Pi re-enumerates with VID 0x1d50.');
     await sleep(8000);
+
+    // ─── Stage 2: 1d50 (re-enumerated after bootcode.bin) ─────
+    log('b', '📥 Reconnecting to Pi (now 0x1d50)...');
+    devs = await navigator.usb.getDevices();
+    dev = devs.find(d => d.vendorId === 0x1d50);
+    if (!dev) {
+      // Try getDevices again after a brief wait
+      await sleep(2000);
+      devs = await navigator.usb.getDevices();
+      dev = devs.find(d => d.vendorId === 0x1d50);
+    }
+    if (!dev) {
+      log('r', '❌ Pi not found after bootcode.bin.');
+      log('dim', '   Try power-cycling (unplug/replug USB).');
+      log('dim', '   Make sure no SD card is inserted in the Pi.');
+      throw new Error('abort');
+    }
 
     // === Stage 2: Re-detect and send boot files ===
     log('b', '📥 Reconnecting...');
@@ -317,10 +332,11 @@ $('goBtn').onclick = async () => {
     if (e.message !== 'abort') {
       log('r', '❌ ' + e.message);
       log('dim', 'Troubleshooting:');
+      log('dim', '• Remove any SD card from the Pi');
+      log('dim', '• Connect to the USB port (side), not PWR port');
       log('dim', '• Use a DATA USB cable (not charge-only)');
       log('dim', '• Power cycle the Pi (unplug/replug USB)');
-      log('dim', '• Remove any SD card from the Pi');
-      log('dim', '• Connect to the USB port on the SIDE (not power port)');
+      log('dim', '• Pi shows as Broadcom BCM2708 Boot (0a5c:2763)');
       log('dim', '• Use Chrome or Edge browser');
     }
     $('goBtn').disabled = false;
