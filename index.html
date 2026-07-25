@@ -3,15 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PiBridge — One Click Flash + Audio Reactive</title>
+<title>PiBridge — Audio Reactive LED Controller</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d1a;color:#e0e0e0;min-height:100vh}
 header{background:#16162a;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #222;flex-wrap:wrap}
 header h1{font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
 .tag{font-size:.6rem;background:#e94560;padding:.15rem .5rem;border-radius:1rem;opacity:.8}
-.stat{font-size:.75rem;padding:.2rem .75rem;border-radius:1rem;font-weight:500}
+.stat{font-size:.7rem;padding:.15rem .6rem;border-radius:1rem;font-weight:500}
 .stat.ok{background:#2ecc71;color:#fff}.stat.err{background:#e74c3c;color:#fff}
+.dlimg{display:flex;gap:.5rem;align-items:center;padding:.5rem;background:#0a0a15;border-radius:8px;margin:.5rem 0;font-size:.78rem}
+.dlimg .sz{color:#6c6c8a;font-size:.7rem}
+.dlimg .nm{flex:1}
+.hint{font-size:.7rem;color:#6c6c8a;line-height:1.5;margin:.5rem 0;padding:.4rem;background:#0a0a15;border-radius:6px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:1rem;padding:1rem}
 .card{background:#16162a;border-radius:12px;padding:1rem 1.2rem}
 .card h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
@@ -48,37 +52,39 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 
 <header>
   <h1>🔧 PiBridge</h1>
-  <span class="tag">One Click — No SD Card Needed</span>
+  <span class="tag">Audio Reactive LED Controller</span>
   <span id="cs" class="stat err">Disconnected</span>
   <button id="cb">🔗 Connect BLE</button>
 </header>
 
 <div class="grid">
 
-  <!-- ═══════ ONE CLICK FLASH ═══════ -->
+  <!-- ═══════ SD CARD SETUP ═══════ -->
   <div class="card">
-    <h2>⚡ One-Click Flash Pi Zero W</h2>
+    <h2>💾 Prepare SD Card for Pi Zero W</h2>
 
-    <div class="step"><span class="num">1</span> Plug Pi into USB <strong>(side port)</strong> with <strong>NO SD card</strong></div>
-    <div class="step"><span class="num">2</span> Click <strong>"🚀 Flash Pi Now"</strong> — Pi boots from RAM</div>
-    <div class="step"><span class="num">3</span> Insert SD card into Pi <strong>(it will copy itself)</strong></div>
-    <div class="step"><span class="num">4</span> Next boot <strong>with SD card</strong> = standalone forever</div>
+    <div class="step"><span class="num">1</span> Insert SD card <strong>(FAT32, ≥256MB)</strong> into your computer</div>
+    <div class="step"><span class="num">2</span> Click <strong>"Write Files to SD Card"</strong> below</div>
+    <div class="step"><span class="num">3</span> Select the SD card folder when prompted</div>
+    <div class="step"><span class="num">4</span> Put SD card in Pi, power on — connects via BLE</div>
 
     <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
-      Flash once <strong>without SD card</strong>. Then insert SD card — Pi writes boot files to it automatically.
-      After that, it boots standalone from SD card — no USB cable needed.
+      Writes boot files + PiBridge firmware directly to your SD card.
+      No terminal or external tools needed. <strong>Chrome or Edge required.</strong>
     </p>
 
-    <div id="fl" class="log"><span class="dim">Connect Pi Zero W to USB and power on.</span></div>
-    <div class="progress"><div class="bar" id="fb"></div></div>
+    <div id="sdLog" class="log"><span class="dim">Insert SD card, then click the button below.</span></div>
+    <div class="progress"><div class="bar" id="sdBar"></div></div>
 
     <div class="row" style="gap:.6rem">
-      <button id="goBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">🚀  Flash Pi Now</button>
-      <button id="bleBtn" disabled class="sec" style="flex:0">🔗 BLE</button>
+      <button id="sdBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">💾  Write Files to SD Card</button>
+      <a href="pibridge-sd.img.gz" download class="sec" style="background:#2c3e50;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;text-decoration:none;font-size:.8rem;white-space:nowrap">⬇ .img.gz</a>
     </div>
 
-    <div id="piStatus" style="font-size:.72rem;color:#6c6c8a;margin-top:.3rem">
-      Pi must have NO SD card. Appears as Broadcom BCM2708 Boot (0a5c:2763). Chrome/Edge.
+    <div class="hint">
+      <strong>Tip:</strong> If your SD card isn't FAT32, format it first:
+      Linux: <code>mkfs.vfat /dev/mmcblk0p1</code> |
+      Windows/macOS: right-click → Format → FAT32
     </div>
   </div>
 
@@ -156,307 +162,111 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 const $=id=>document.getElementById(id);
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. ONE-CLICK FLASH — WebUSB to Pi Zero W boot ROM
+// 1. SD CARD SETUP — Write boot files via File System Access API
 // ═══════════════════════════════════════════════════════════════════════
-// Pi Zero W boot: Stage 1 = Broadcom BCM2708 Boot (0a5c:2763)
-// Stage 2 (after bootcode.bin) = 1d50:6042
+// Uses the browser's File System Access API to write boot files directly
+// to the user's mounted SD card. The SD card must be formatted as FAT32.
 //
-// Protocol (from rpiboot source):
-//   ep_write: vendor control OUT (bReq=0, wValue=len&0xFFFF, wIndex=len>>16)
-//             then bulk OUT on endpoint to send data
-//   ep_read:  vendor control IN (bReq=0, wValue=len&0xFFFF, wIndex=len>>16)
-//             device fills buffer with response data
+// Files written:
+//   bootcode.bin, start.elf, fixup.dat, config.txt, cmdline.txt,
+//   kernel.img, initramfs.gz, bcm2708-rpi-zero-w.dtb
 //
-// Stage 1 (BCM2708 Boot ROM):
-//   1. ep_write 24-byte header (boot_message: 4-byte length + 20-byte signature)
-//   2. ep_write bootcode.bin
-//   3. ep_read 4-byte status
-//
-// Stage 2 (file server, after re-enumeration):
-//   1. Claim interface 1 (vendor), endpoints 3 OUT / 4 IN
-//   2. Loop: ep_read file_message {command:int32, filename:char[256]}
-//      - GetFileSize (0): ep_write file size via control
-//      - ReadFile (1):    ep_write file contents
-//      - Done (2):        exit
-//
-let piDev = null, fl = $('fl'), isFlashing = false;
+// Chrome/Edge only. User selects the SD card folder via showDirectoryPicker().
 
-function log(cls, msg) {
-  fl.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
-  fl.scrollTop = fl.scrollHeight;
+let sdLog = $('sdLog');
+
+function sdLogMsg(cls, msg) {
+  sdLog.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
+  sdLog.scrollTop = sdLog.scrollHeight;
 }
-function bar(pct) { $('fb').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sdBar(pct) { $('sdBar').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
 
-async function fetchBin(name) {
-  let r = await fetch(name);
-  if (!r.ok) throw new Error('Failed to fetch ' + name + ' (' + r.status + ')');
-  return new Uint8Array(await r.arrayBuffer());
-}
+const SD_FILES = [
+  ['bootcode.bin',             'Boot ROM',      '52 KB'],
+  ['start.elf',                'GPU firmware',  '2.9 MB'],
+  ['fixup.dat',                'GPU startup',   '7 KB'],
+  ['config.txt',               'Boot config',   '133 B'],
+  ['cmdline.txt',              'Kernel params', '63 B'],
+  ['kernel.img',               'Linux kernel',  '7.4 MB'],
+  ['initramfs.gz',             'RAM filesystem','23 MB'],
+  ['bcm2708-rpi-zero-w.dtb',   'Device tree',   '32 KB'],
+];
 
-// ── Low-level rpiboot protocol helpers ──────────────────────────
-
-/** Vendor control OUT to announce length, then bulk OUT to send data */
-async function epWrite(dev, data, ep) {
-  ep = ep || 1;
-  const len = data.length;
-  await dev.controlTransferOut({
-    requestType: 'vendor',
-    recipient: 'device',
-    request: 0,
-    value: len & 0xFFFF,
-    index: len >> 16,
-  });
-  if (len === 0) return;
-  // Send in chunks up to 16KB (LIBUSB_MAX_TRANSFER)
-  for (let off = 0; off < len; off += 16384) {
-    const chunk = data.slice(off, Math.min(off + 16384, len));
-    await dev.transferOut(ep, chunk);
-  }
-}
-
-/** Vendor control IN to read data of given length */
-async function epRead(dev, len, ep) {
-  const result = await dev.controlTransferIn({
-    requestType: 'vendor',
-    recipient: 'device',
-    request: 0,
-    value: len & 0xFFFF,
-    index: len >> 16,
-  }, len);
-  return result.data;
-}
-
-/** Send bootcode.bin using the rpiboot protocol */
-async function sendBootcode(dev, bootcode) {
-  // Step 1: Send 24-byte boot_message header (4-byte length + 20 zero signature)
-  const msg = new ArrayBuffer(24);
-  const dv = new DataView(msg);
-  dv.setUint32(0, bootcode.length, true);  // little-endian length
-  // bytes 4-23 are zero (no signature/signed boot)
-  await epWrite(dev, new Uint8Array(msg));
-
-  // Step 2: Send actual bootcode.bin
-  await epWrite(dev, bootcode);
-
-  // Step 3: Read 4-byte status response
-  const resp = await epRead(dev, 4);
-  const status = new DataView(resp.buffer).getUint32(0, true);
-  return status;
-}
-
-/**
- * Run the file server protocol after bootcode.bin has booted the Pi.
- * The Pi requests files one by one; we serve them from `fileMap`.
- */
-async function fileServer(dev, fileMap) {
-  // After bootcode.bin, the Pi re-enumerates with 2 interfaces:
-  //   Interface 0 = mass storage (class 8)
-  //   Interface 1 = vendor (class 255) for file requests
-  const cfg = dev.configurations[0];
-  const numIface = cfg.interfaces.length;
-  const iface = numIface > 1 ? cfg.interfaces[1] : cfg.interfaces[0];
-  const outEp = numIface > 1 ? 3 : 1;
-
-  await dev.claimInterface(iface.interfaceNumber);
-
-  while (true) {
-    // Read file_message: {command: int32, filename: char[256]}
-    const data = await epRead(dev, 260);
-    const cmd = new DataView(data.buffer).getInt32(0, true);
-    const name = new TextDecoder()
-      .decode(data.slice(4, 260))
-      .replace(/\0+$/, '');
-
-    if (cmd === 2 || name.length === 0) {
-      // Done
-      await epWrite(dev, new Uint8Array(0), outEp);
-      break;
-    }
-
-    const fileData = fileMap[name];
-
-    if (cmd === 0) {
-      // GetFileSize — send size via control (no bulk)
-      const size = fileData ? fileData.length : 0;
-      await dev.controlTransferOut({
-        requestType: 'vendor',
-        recipient: 'device',
-        request: 0,
-        value: size & 0xFFFF,
-        index: size >> 16,
-      });
-    } else if (cmd === 1) {
-      // ReadFile — send contents
-      if (fileData) {
-        await epWrite(dev, fileData, outEp);
-      } else {
-        // File not found: signal with zero-length response
-        await epWrite(dev, new Uint8Array(0), outEp);
-      }
-    }
-  }
-}
-
-$('goBtn').onclick = async () => {
-  if (isFlashing) return;
-  isFlashing = true;
-  $('goBtn').disabled = true;
-  $('goBtn').textContent = '⏳ Working...';
-  fl.innerHTML = '';
-  bar(0);
+$('sdBtn').onclick = async () => {
+  sdLog.innerHTML = '<span class="dim">Select your SD card folder...</span>';
+  sdBar(0);
 
   try {
-    // Check WebUSB
-    if (!navigator.usb) {
-      log('r', '❌ WebUSB not supported. Use Chrome or Edge.');
-      throw new Error('abort');
+    // Check for File System Access API
+    if (!('showDirectoryPicker' in window)) {
+      sdLogMsg('r', '❌ File System Access API not supported.');
+      sdLogMsg('dim', '   Use Chrome or Edge browser.');
+      return;
     }
 
-    // ─── Stage 1: Broadcom BCM2708 Boot (0a5c:2763) ────────────
-    log('b', '🔍 Looking for Pi Zero W in boot mode (Broadcom 0a5c)...');
-    let devs = await navigator.usb.getDevices();
-    let dev = devs.find(d => d.vendorId === 0x0a5c);
-
-    if (!dev) {
-      log('dim', '   No Pi found yet. Opening device picker...');
-      try {
-        // Use specific filter to avoid showing other Broadcom devices
-        dev = await navigator.usb.requestDevice({
-          filters: [{
-            vendorId: 0x0a5c,
-            productId: 0x2763  // BCM2708 Boot only
-          }]
-        });
-      } catch(e) {
-        if (e.name === 'NotFoundError') {
-          log('r', '❌ No Pi detected.');
-          log('dim', '   Make sure Pi Zero W has NO SD card inserted,');
-          log('dim', '   is connected via USB (side port), and powered on.');
-          log('dim', '   It should appear as "Broadcom BCM2708 Boot"');
-          throw new Error('abort');
-        }
-        throw e;
+    // Step 1: User picks the SD card directory
+    let dir;
+    try {
+      dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    } catch(e) {
+      if (e.name === 'AbortError' || e.name === 'SecurityError') {
+        sdLogMsg('dim', '⏹ Cancelled');
+        return;
       }
+      throw e;
     }
 
-    if (!dev) { log('r', 'No Pi found'); throw new Error('abort'); }
-    piDev = dev;
-    log('g', '✅ Pi Zero W detected in boot mode (Broadcom BCM2708 Boot)!');
+    sdLogMsg('g', '✅ SD card folder selected');
+    sdBar(5);
 
-    // Open and claim interface
-    try {
-      await dev.open();
-    } catch(e) {
-      log('r', '❌ Cannot open Pi: ' + e.message);
-      log('dim', '   This means a system driver is blocking access.');
-      log('dim', '   Try: unplug and replug the Pi, then click Flash again.');
-      log('dim', '   If still failing, close other USB apps and retry.');
-      throw new Error('abort');
-    }
-    let cfg = dev.configurations[0];
-    await dev.selectConfiguration(cfg.configurationValue);
-    let iface = cfg.interfaces[0];
-    try {
-      await dev.claimInterface(iface.interfaceNumber);
-    } catch(e) {
-      log('r', '❌ Cannot claim interface: ' + e.message);
-      log('dim', '   Trying alternate interface...');
-      if (cfg.interfaces.length > 1) {
-        await dev.claimInterface(cfg.interfaces[1].interfaceNumber);
-      } else { throw new Error('abort'); }
-    }
-    log('g', '✅ USB interface claimed');
-    bar(5);
+    // Step 2: Verify it looks like an SD card (has free space)
+    // We can't check size from File System API, just proceed
 
-    // === Stage 1: Send bootcode.bin using rpiboot protocol ===
-    log('b', '📥 Sending bootcode.bin (52 KB) via rpiboot protocol...');
-    bar(8);
-    let bc = await fetchBin('bootcode.bin');
-    const status = await sendBootcode(dev, bc);
-    bar(15);
-    if (status !== 0) {
-      log('r', '❌ Pi boot ROM returned error: 0x' + status.toString(16));
-      log('dim', '   Try power-cycling the Pi and try again.');
-      throw new Error('abort');
-    }
-    log('g', '✅ bootcode.bin sent successfully — Pi will reset and re-enumerate');
+    // Step 3: Download and write each file
+    for (let i = 0; i < SD_FILES.length; i++) {
+      const [name, label, sizeHint] = SD_FILES[i];
+      sdLogMsg('dim', `   [${i+1}/${SD_FILES.length}] Downloading ${name} (${sizeHint})...`);
 
-    // Close and wait for re-detection
-    try { dev.close(); } catch(e) {}
-    log('dim', '⏳ Waiting for Pi to re-appear as 0x1d50 (up to 20s)...');
-    log('dim', '   After bootcode.bin, the Pi re-enumerates with VID 0x1d50.');
+      // Download the file from our server
+      let resp;
+      try {
+        resp = await fetch(name);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      } catch(e) {
+        sdLogMsg('r', `❌ Failed to fetch ${name}: ${e.message}`);
+        return;
+      }
 
-    // ─── Stage 2: 1d50 (re-enumerated after bootcode.bin) ─────
-    let found = false, s2dev = null;
-    for (let w = 0; w < 20; w++) {
-      await sleep(1000);
-      devs = await navigator.usb.getDevices();
-      s2dev = devs.find(d => d.vendorId === 0x1d50);
-      if (s2dev) { found = true; break; }
-    }
-    if (!found) {
-      log('r', '❌ Pi did not re-appear after bootcode.bin.');
-      log('dim', '   Try power-cycling (unplug/replug USB).');
-      log('dim', '   Make sure no SD card is inserted in the Pi.');
-      throw new Error('abort');
+      const blob = await resp.blob();
+      sdLogMsg('dim', `      Writing to SD card...`);
+
+      // Write to SD card via File System Access API
+      try {
+        const fileHandle = await dir.getFileHandle(name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } catch(e) {
+        sdLogMsg('r', `❌ Failed to write ${name}: ${e.message}`);
+        sdLogMsg('dim', '   Make sure SD card is not write-protected');
+        sdLogMsg('dim', '   and has enough free space.');
+        return;
+      }
+
+      const basePct = 5 + ((i + 1) / SD_FILES.length) * 90;
+      sdBar(basePct);
+      sdLogMsg('g', `      ✓ ${name}`);
     }
 
-    log('g', '✅ Pi re-appeared as 0x1d50:' + s2dev.productId.toString(16));
-    piDev = s2dev;
-    await s2dev.open();
-    // Select config but DON'T claim interface 0 yet — let fileServer handle it
-    const cfg2 = s2dev.configurations[0];
-    await s2dev.selectConfiguration(cfg2.configurationValue);
-    log('g', '✅ Reconnected — starting file server');
-
-    // Pre-fetch all boot files into a Map for the file server
-    const fileNames = [
-      'start.elf', 'config.txt', 'cmdline.txt',
-      'kernel.img', 'initramfs.gz'
-    ];
-    const fileMap = {};
-    for (const [idx, name] of fileNames.entries()) {
-      log('dim', `   [${idx+1}/${fileNames.length}] Loading ${name}...`);
-      fileMap[name] = await fetchBin(name);
-      const basePct = 15 + (idx / fileNames.length) * 65;
-      bar(basePct);
-    }
-
-    log('b', '📥 File server: Pi will request files...');
-    await fileServer(s2dev, fileMap);
-    bar(95);
-
-    try { s2dev.close(); } catch(e) {}
-    bar(100);
-    log('b', '🎉 All files transferred! Pi is booting...');
-    log('dim', '⏳ Pi boots the initramfs and starts Bluetooth.');
-    log('dim', '⏳ It will advertise as "PiBridge" in about 25 seconds.');
-    log('dim', '⏳ Then click "Connect via BLE" below.');
-
-    $('bleBtn').disabled = false;
-    $('bleBtn').classList.add('green');
-    $('bleBtn').textContent = '🔗 Connect via BLE';
-    $('piStatus').textContent = '✅ Booting... connect via BLE in ~25s';
-    $('goBtn').textContent = '✅ Flashed!';
+    sdBar(100);
+    sdLogMsg('b', '🎉 All files written to SD card!');
+    sdLogMsg('dim', '⏳ Eject SD card safely, insert in Pi Zero W, and power on.');
+    sdLogMsg('dim', '⏳ Pi will boot and advertise as "PiBridge" via BLE in ~25s.');
+    sdLogMsg('dim', '⏳ Then click "Connect BLE" above.');
 
   } catch(e) {
-    if (e.message !== 'abort') {
-      log('r', '❌ ' + e.message);
-      log('dim', 'Troubleshooting:');
-      log('dim', '• Remove any SD card from the Pi');
-      log('dim', '• Connect to the USB port (side), not PWR port');
-      log('dim', '• Use a DATA USB cable (not charge-only)');
-      log('dim', '• Power cycle the Pi (unplug/replug USB)');
-      log('dim', '• Pi shows as Broadcom BCM2708 Boot (0a5c:2763)');
-      log('dim', '• Use Chrome or Edge browser');
-    }
-    $('goBtn').disabled = false;
-    $('goBtn').textContent = '🚀  Flash Pi Now';
-    isFlashing = false;
-    bar(0);
-  } finally {
-    isFlashing = false;
+    sdLogMsg('r', '❌ ' + e.message);
+    sdBar(0);
   }
 };
 
@@ -476,7 +286,7 @@ const CH = {
 
 let bd, bs, bsvc, bch = {}, bcon = false;
 
-$('bleBtn').onclick = async () => {
+async function bleConnect() {
   try {
     bd = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'PiBridge' }],
@@ -490,23 +300,21 @@ $('bleBtn').onclick = async () => {
     $('cs').textContent = 'Connected';
     $('cs').className = 'stat ok';
     $('cb').textContent = '❌ Disconnect';
-    $('bleBtn').textContent = '✅ Connected!';
-    $('bleBtn').disabled = true;
-    $('bleBtn').classList.remove('green');
     bd.addEventListener('gattserverdisconnected', () => {
       bcon = false; $('cs').textContent = 'Disconnected';
       $('cs').className = 'stat err'; $('cb').textContent = '🔗 Connect BLE';
-      $('bleBtn').textContent = '🔗 Connect via BLE';
-      $('bleBtn').disabled = false;
       bch = {};
     });
   } catch(e) {
     $('cs').textContent = 'Error: ' + e.message;
     $('cs').className = 'stat err';
   }
-};
+}
 
-$('cb').onclick = () => { if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); } else $('bleBtn').click(); };
+$('cb').onclick = () => {
+  if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); }
+  else bleConnect();
+};
 
 function wc(n, d) { if(bch[n]) try{bch[n].writeValue(d)}catch(e){} }
 
