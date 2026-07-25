@@ -15,6 +15,8 @@ header h1{font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:.
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:1rem;padding:1rem}
 .card{background:#16162a;border-radius:12px;padding:1rem 1.2rem}
 .card h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+.step{display:flex;gap:.6rem;align-items:flex-start;margin:.7rem 0;font-size:.78rem;color:#b0b0c0}
+.step .num{background:#2c3e50;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;flex-shrink:0;color:#e94560}
 .row{display:flex;gap:.5rem;align-items:center;margin:.4rem 0;flex-wrap:wrap}
 .row label{font-size:.76rem;color:#6c6c8a;min-width:3.5rem}
 input,select,button{font-family:inherit;font-size:.8rem}
@@ -31,7 +33,7 @@ button.green{background:#2ecc71}
 button.sec{background:#2c3e50}
 button:disabled{opacity:.35;cursor:not-allowed;transform:none}
 .val{font-family:"SF Mono",monospace;font-size:.75rem;color:#6c6c8a;min-width:2.5rem;text-align:right}
-.log{background:#0a0a15;border:1px solid #222;border-radius:8px;padding:.5rem .6rem;font-family:"SF Mono",monospace;font-size:.68rem;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0}
+.log{background:#0a0a15;border:1px solid #222;border-radius:8px;padding:.5rem .6rem;font-family:"SF Mono",monospace;font-size:.68rem;max-height:180px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0}
 .log .g{color:#2ecc71}.log .r{color:#e74c3c}.log .b{color:#e94560}.log .dim{color:#6c6c8a}
 .progress{width:100%;height:5px;background:#0d0d1a;border-radius:3px;overflow:hidden;margin:.4rem 0}
 .progress .bar{height:100%;background:linear-gradient(90deg,#e94560,#ff6b81);border-radius:3px;transition:width .3s;width:0%}
@@ -46,31 +48,42 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 
 <header>
   <h1>🔧 PiBridge</h1>
-  <span class="tag">One Click</span>
+  <span class="tag">One Click — No SD Card Needed</span>
   <span id="cs" class="stat err">Disconnected</span>
   <button id="cb">🔗 Connect BLE</button>
 </header>
 
 <div class="grid">
 
-  <!-- ═══════ ONE-CLICK FLASH ═══════ -->
+  <!-- ═══════ ONE CLICK FLASH ═══════ -->
   <div class="card">
-    <h2>⚡ Flash Pi</h2>
-    <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.4rem">
-      Connect Pi Zero W to USB <strong>(side port)</strong>, power on. Then click once. No SD card needed — Pi runs from RAM.
+    <h2>⚡ One-Click Flash Pi Zero W</h2>
+
+    <div class="step"><span class="num">1</span> Plug Pi into USB <strong>(side port)</strong> — any cable works</div>
+    <div class="step"><span class="num">2</span> Click <strong>"🚀 Flash Pi Now"</strong> below</div>
+    <div class="step"><span class="num">3</span> Wait 20s — Pi boots, shows <strong>"PiBridge"</strong> on Bluetooth</div>
+    <div class="step"><span class="num">4</span> Click <strong>"Connect via BLE"</strong> — done</div>
+
+    <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
+      No SD card needed. No config. Pi runs entirely from RAM.
     </p>
-    <div id="fl" class="log"><span class="dim">Ready. Plug in Pi and power it on.</span></div>
+
+    <div id="fl" class="log"><span class="dim">Connect Pi Zero W to USB and power on.</span></div>
     <div class="progress"><div class="bar" id="fb"></div></div>
+
     <div class="row" style="gap:.6rem">
-      <button id="goBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">🚀 Flash Pi Now</button>
+      <button id="goBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">🚀  Flash Pi Now</button>
       <button id="bleBtn" disabled class="sec" style="flex:0">🔗 BLE</button>
     </div>
-    <div id="piStatus" style="font-size:.72rem;color:#6c6c8a;margin-top:.3rem"></div>
+
+    <div id="piStatus" style="font-size:.72rem;color:#6c6c8a;margin-top:.3rem">
+      Pi Zero W appears as USB device (VID 0x1d50). Chrome/Edge required.
+    </div>
   </div>
 
   <!-- ═══════ MUSIC REACTIVE ═══════ -->
   <div class="card">
-    <h2>🎵 Music Reactive <span style="font-size:.58rem;color:#888;font-weight:400">works now</span></h2>
+    <h2>🎵 Music Reactive <span style="font-size:.58rem;color:#888;font-weight:400">works in browser</span></h2>
     <div class="row">
       <button id="audioBtn" class="green" style="flex:1">🎤 Start Microphone</button>
     </div>
@@ -112,7 +125,7 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 
   <!-- ═══════ GPIO ═══════ -->
   <div class="card">
-    <h2>⚡ GPIO</h2>
+    <h2>⚡ GPIO (after BLE connect)</h2>
     <div class="row">
       <label>Pin</label>
       <input type="number" id="gp" value="17" min="2" max="27" style="width:4rem">
@@ -142,8 +155,13 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 const $=id=>document.getElementById(id);
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. ONE-CLICK FLASH — WebUSB boot
+// 1. ONE-CLICK FLASH — WebUSB to Pi Zero W boot ROM
 // ═══════════════════════════════════════════════════════════════════════
+// Pi Zero W in boot mode enumerates as VID 0x1d50, PID 0x6042.
+// Protocol: send 0x01 start signal, then bootcode.bin (52KB).
+// Pi resets and re-enumerates as 0x1d50, then we send start.elf,
+// config.txt, cmdline.txt, kernel.img, initramfs.gz.
+// Pi boots initramfs from RAM — no SD card needed.
 
 const RPI_VID = 0x1d50;
 let piDev = null, fl = $('fl'), isFlashing = false;
@@ -161,6 +179,21 @@ async function fetchBin(name) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
+function sendFile(dev, data, onChunk) {
+  return new Promise(async (resolve, reject) => {
+    for (let i = 0; i < data.length; i += 512) {
+      try {
+        await dev.transferOut(1, data.slice(i, Math.min(i + 512, data.length)));
+        if (onChunk) onChunk(i, data.length);
+      } catch(e) {
+        reject(e);
+        return;
+      }
+    }
+    resolve();
+  });
+}
+
 $('goBtn').onclick = async () => {
   if (isFlashing) return;
   isFlashing = true;
@@ -170,46 +203,77 @@ $('goBtn').onclick = async () => {
   bar(0);
 
   try {
-    log('dim', '🔍 Looking for Pi in boot mode...');
+    // Check WebUSB
+    if (!navigator.usb) {
+      log('r', '❌ WebUSB not supported. Use Chrome or Edge.');
+      throw new Error('abort');
+    }
+
+    // === Step 1: Find Pi in boot mode ===
+    log('b', '🔍 Looking for Pi Zero W in boot mode...');
     let devs = await navigator.usb.getDevices();
     let dev = devs.find(d => d.vendorId === RPI_VID);
-    if (!dev) dev = await navigator.usb.requestDevice({ filters: [{ vendorId: RPI_VID }] });
-    if (!dev) { log('r', 'No Pi selected'); throw new Error('abort'); }
-    piDev = dev;
-    log('g', '✅ Found Pi Zero W in boot mode');
 
+    if (!dev) {
+      log('dim', '   No Pi found yet. Requesting device...');
+      try {
+        dev = await navigator.usb.requestDevice({
+          filters: [{ vendorId: RPI_VID }]
+        });
+      } catch(e) {
+        if (e.name === 'NotFoundError') {
+          log('r', '❌ No Pi detected. Make sure it is connected via USB.');
+          log('dim', '   • Connect Pi Zero W to the USB port (side port)');
+          log('dim', '   • Power on the Pi (if using separate power)');
+          log('dim', '   • The Pi shows up as vendor ID 0x1d50 in boot mode');
+          throw new Error('abort');
+        }
+        throw e;
+      }
+    }
+
+    if (!dev) { log('r', 'No Pi found'); throw new Error('abort'); }
+    piDev = dev;
+    log('g', '✅ Pi Zero W detected in boot mode!');
+
+    // Open and claim interface
     await dev.open();
     let cfg = dev.configurations[0];
     await dev.selectConfiguration(cfg.configurationValue);
-    await dev.claimInterface(cfg.interfaces[0].interfaceNumber);
+    let iface = cfg.interfaces[0];
+    await dev.claimInterface(iface.interfaceNumber);
     log('g', '✅ USB interface claimed');
     bar(5);
 
-    // Stage 1: bootcode.bin
-    log('b', '📥 Sending bootcode.bin...');
+    // === Stage 1: Send bootcode.bin ===
+    log('b', '📥 Sending bootcode.bin (52 KB)...');
     await dev.transferOut(1, new Uint8Array([0x01]));
     await sleep(300);
 
     let bc = await fetchBin('bootcode.bin');
-    for (let i = 0; i < bc.length; i += 512) {
-      await dev.transferOut(1, bc.slice(i, Math.min(i + 512, bc.length)));
-      bar(5 + (i / bc.length) * 10);
-    }
+    await sendFile(dev, bc, (sent, total) => {
+      bar(5 + (sent / total) * 10);
+    });
     log('g', '✅ bootcode.bin sent — Pi will reset');
     bar(15);
-    try { dev.close(); } catch(e) {}
 
+    // Close and wait for re-detection
+    try { dev.close(); } catch(e) {}
     log('dim', '⏳ Waiting for Pi to re-appear (8s)...');
+    log('dim', '   The Pi will disconnect and reconnect as a new USB device.');
     await sleep(8000);
 
-    // Stage 2: rest of boot files
-    log('b', '📥 Loading boot files...');
+    // === Stage 2: Re-detect and send boot files ===
+    log('b', '📥 Reconnecting...');
     devs = await navigator.usb.getDevices();
     dev = devs.find(d => d.vendorId === RPI_VID);
     if (!dev) {
-      log('r', 'Pi not found after reset. Power-cycle and try again.');
+      log('r', '❌ Pi not found after reset.');
+      log('dim', '   Try power-cycling the Pi (unplug/replug USB).');
+      log('dim', '   If the Pi has an SD card inserted, try removing it.');
       throw new Error('abort');
     }
+
     piDev = dev;
     await dev.open();
     cfg = dev.configurations[0];
@@ -218,46 +282,48 @@ $('goBtn').onclick = async () => {
     log('g', '✅ Reconnected — sending boot files');
 
     const files = [
-      ['start.elf', 'GPU firmware'],
-      ['config.txt', 'Boot config'],
-      ['cmdline.txt', 'Kernel cmdline'],
-      ['kernel.img', 'Linux kernel'],
-      ['initramfs.gz', 'Initramfs (OS)']
+      ['start.elf',    'GPU firmware',  '📦'],
+      ['config.txt',   'Boot config',   '⚙'],
+      ['cmdline.txt',  'Kernel cmdline','⚙'],
+      ['kernel.img',   'Linux kernel',  '🧠'],
+      ['initramfs.gz', 'RAM filesystem', '💿'],
     ];
 
-    for (const [idx, [name, label]] of files.entries()) {
-      log('dim', `   [${idx+1}/${files.length}] ${label} (${name})...`);
+    for (const [idx, [name, label, icon]]) of files.entries()) {
+      log('dim', `   [${idx+1}/${files.length}] ${icon} ${label} (${name})...`);
       const data = await fetchBin(name);
-      for (let i = 0; i < data.length; i += 512) {
-        await dev.transferOut(1, data.slice(i, Math.min(i + 512, data.length)));
-      }
-      bar(15 + ((idx + 1) / files.length) * 65);
-      log('g', `   ✓ ${name}`);
+      await sendFile(dev, data, (sent, total) => {
+        const basePct = 15 + (idx / files.length) * 65;
+        bar(basePct + (sent / total) * (65 / files.length));
+      });
+      log('g', `      ✓ ${name} (${(data.length/1024).toFixed(0)} KB)`);
     }
 
     try { dev.close(); } catch(e) {}
     bar(100);
     log('b', '🎉 All files sent! Pi is booting...');
-    log('dim', 'Pi will boot into initramfs, start Bluetooth,');
-    log('dim', 'and advertise as "PiBridge" in about 25 seconds.');
+    log('dim', '⏳ Pi boots the initramfs and starts Bluetooth.');
+    log('dim', '⏳ It will advertise as "PiBridge" in about 25 seconds.');
+    log('dim', '⏳ Then click "Connect via BLE" below.');
 
     $('bleBtn').disabled = false;
     $('bleBtn').classList.add('green');
     $('bleBtn').textContent = '🔗 Connect via BLE';
-    $('piStatus').textContent = '✅ Booting... click BLE in ~25s';
-    $('goBtn').disabled = true;
+    $('piStatus').textContent = '✅ Booting... connect via BLE in ~25s';
     $('goBtn').textContent = '✅ Flashed!';
 
   } catch(e) {
     if (e.message !== 'abort') {
       log('r', '❌ ' + e.message);
-      log('dim', 'Tips:');
-      log('dim', '• Use a DATA USB cable, not charge-only');
-      log('dim', '• Power cycle Pi (unplug/replug USB)');
+      log('dim', 'Troubleshooting:');
+      log('dim', '• Use a DATA USB cable (not charge-only)');
+      log('dim', '• Power cycle the Pi (unplug/replug USB)');
+      log('dim', '• Remove any SD card from the Pi');
+      log('dim', '• Connect to the USB port on the SIDE (not power port)');
       log('dim', '• Use Chrome or Edge browser');
     }
     $('goBtn').disabled = false;
-    $('goBtn').textContent = '🚀 Flash Pi Now';
+    $('goBtn').textContent = '🚀  Flash Pi Now';
     isFlashing = false;
     bar(0);
   } finally {
@@ -410,7 +476,7 @@ function genF(id, c, p, tick) {
   const {r=255,g=255,b=255,bright=128,speed=80,as}=p;
   const br = bright/255, s = speed/255;
   if (id === 1) { for (let i=0;i<c;i++) f[i*3]=Math.round(r*br),f[i*3+1]=Math.round(g*br),f[i*3+2]=Math.round(b*br); return f; }
-  if (id === 2) { for (let i=0;i<c;i++) { const h=((i/c)+(tick*s*0.005))%1; const [cr,cg,cb]=hsv(h,1,1); f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br); } return f; }
+  if (id === 2) { for (let i=0;i<c;i++) { const h=((i/c)+(tick*s*0.005))%1; const[cr,cg,cb]=hsv(h,1,1); f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br); } return f; }
   if (id === 3) { const b2 = Math.sin(tick*s*0.04)*0.5+0.5; for (let i=0;i<c;i++) f[i*3]=Math.round(r*br*b2),f[i*3+1]=Math.round(g*br*b2),f[i*3+2]=Math.round(b*br*b2); return f; }
   if (id === 4) { for (let i=0;i<c;i++) f[i*3]=Math.round(r*br*(i%3===tick%3?255:0)/255),f[i*3+1]=Math.round(g*br*(i%3===tick%3?255:0)/255),f[i*3+2]=Math.round(b*br*(i%3===tick%3?255:0)/255); return f; }
   if (id === 5 && as) {
@@ -450,7 +516,7 @@ function renderP(f) {
 // 5. GPIO
 // ═══════════════════════════════════════════════════════════════════════
 
-let gpioState = {};  // track pin states for toggle
+let gpioState = {};
 
 $('hi').onclick = () => sg(1);
 $('lo').onclick = () => sg(0);
@@ -478,14 +544,14 @@ $('pwmBtn').onclick = () => {
   if (!bcon) return;
   const p = parseInt($('gp').value), d = parseInt($('pwm').value);
   const b = new Uint8Array(5);
-  b[0] = p; b[1] = d; b[2] = 0xE8; b[3] = 0x03;  // freq=1000
+  b[0] = p; b[1] = d; b[2] = 0xE8; b[3] = 0x03;
   wc('pw', b);
 };
 
 $('svBtn').onclick = () => {
   if (!bcon) return;
   const p = parseInt($('gp').value), angle = parseInt($('sv').value);
-  const pulse = 500 + (angle / 180) * 2500;  // 500-3000us
+  const pulse = 500 + (angle / 180) * 2500;
   const b = new Uint8Array(5);
   b[0] = p; b[1] = 0; b[2] = pulse & 0xFF; b[3] = (pulse >> 8) & 0xFF;
   wc('sv', b);
