@@ -59,13 +59,14 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
   <div class="card">
     <h2>⚡ One-Click Flash Pi Zero W</h2>
 
-    <div class="step"><span class="num">1</span> Plug Pi into USB <strong>(side port)</strong> — any cable works</div>
-    <div class="step"><span class="num">2</span> Click <strong>"🚀 Flash Pi Now"</strong> below</div>
-    <div class="step"><span class="num">3</span> Wait 20s — Pi boots, shows <strong>"PiBridge"</strong> on Bluetooth</div>
-    <div class="step"><span class="num">4</span> Click <strong>"Connect via BLE"</strong> — done</div>
+    <div class="step"><span class="num">1</span> Plug Pi into USB <strong>(side port)</strong> with <strong>NO SD card</strong></div>
+    <div class="step"><span class="num">2</span> Click <strong>"🚀 Flash Pi Now"</strong> — Pi boots from RAM</div>
+    <div class="step"><span class="num">3</span> Insert SD card into Pi <strong>(it will copy itself)</strong></div>
+    <div class="step"><span class="num">4</span> Next boot <strong>with SD card</strong> = standalone forever</div>
 
     <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
-      No SD card needed. No config. Pi runs entirely from RAM.
+      Flash once <strong>without SD card</strong>. Then insert SD card — Pi writes boot files to it automatically.
+      After that, it boots standalone from SD card — no USB cable needed.
     </p>
 
     <div id="fl" class="log"><span class="dim">Connect Pi Zero W to USB and power on.</span></div>
@@ -77,7 +78,7 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
     </div>
 
     <div id="piStatus" style="font-size:.72rem;color:#6c6c8a;margin-top:.3rem">
-      Pi Zero W appears as USB device (VID 0x1d50). Chrome/Edge required.
+      1) Flash without SD card. 2) Insert SD card after boot. 3) Standalone forever.
     </div>
   </div>
 
