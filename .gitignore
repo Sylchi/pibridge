@@ -1,0 +1,18 @@
+# Binaries
+build/
+pibridge-tinygo
+*.elf
+*.bin
+*.img
+
+# Test artifacts
+src/machine/usb_test_*
+qemu-test*
+
+# Dependencies
+mod/bluetooth/s110_nrf51_8.0.0/
+mod/bluetooth/s113_nrf52_7.0.1/
+mod/bluetooth/s132_nrf52_6.1.1/
+mod/bluetooth/s140_nrf52_6.1.1/
+mod/bluetooth/s140_nrf52_7.3.0/
+mod/bluetooth/images/
