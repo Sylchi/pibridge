@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PiBridge — Audio Reactive LED Controller</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d1a;color:#e0e0e0;min-height:100vh}
+header{background:#16162a;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #222;flex-wrap:wrap}
+header h1{font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+.tag{font-size:.6rem;background:#e94560;padding:.15rem .5rem;border-radius:1rem;opacity:.8}
+.stat{font-size:.7rem;padding:.15rem .6rem;border-radius:1rem;font-weight:500}
+.stat.ok{background:#2ecc71;color:#fff}.stat.err{background:#e74c3c;color:#fff}
+.dlimg{display:flex;gap:.5rem;align-items:center;padding:.5rem;background:#0a0a15;border-radius:8px;margin:.5rem 0;font-size:.78rem}
+.dlimg .sz{color:#6c6c8a;font-size:.7rem}
+.dlimg .nm{flex:1}
+.hint{font-size:.7rem;color:#6c6c8a;line-height:1.5;margin:.5rem 0;padding:.4rem;background:#0a0a15;border-radius:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:1rem;padding:1rem}
+.card{background:#16162a;border-radius:12px;padding:1rem 1.2rem}
+.card h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:#e94560;margin-bottom:.75rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+.step{display:flex;gap:.6rem;align-items:flex-start;margin:.7rem 0;font-size:.78rem;color:#b0b0c0}
+.step .num{background:#2c3e50;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;flex-shrink:0;color:#e94560}
+.row{display:flex;gap:.5rem;align-items:center;margin:.4rem 0;flex-wrap:wrap}
+.row label{font-size:.76rem;color:#6c6c8a;min-width:3.5rem}
+input,select,button{font-family:inherit;font-size:.8rem}
+input[type=number]{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:6px;width:5rem}
+select{background:#0d0d1a;border:1px solid #333;color:#fff;padding:.35rem .5rem;border-radius:6px;cursor:pointer}
+input[type=range]{-webkit-appearance:none;height:4px;background:#333;border-radius:2px;width:5rem;flex-shrink:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#e94560;border-radius:50%;cursor:pointer}
+input[type=color]{width:34px;height:34px;border:none;border-radius:50%;cursor:pointer;background:none;padding:0;flex-shrink:0}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:2px solid #333;border-radius:50%}
+button{background:#e94560;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0}
+button:hover{opacity:.85;transform:translateY(-1px)}
+button.green{background:#2ecc71}
+button.sec{background:#2c3e50}
+button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.val{font-family:"SF Mono",monospace;font-size:.75rem;color:#6c6c8a;min-width:2.5rem;text-align:right}
+.log{background:#0a0a15;border:1px solid #222;border-radius:8px;padding:.5rem .6rem;font-family:"SF Mono",monospace;font-size:.68rem;max-height:180px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:.5rem 0}
+.log .g{color:#2ecc71}.log .r{color:#e74c3c}.log .b{color:#e94560}.log .dim{color:#6c6c8a}
+.progress{width:100%;height:5px;background:#0d0d1a;border-radius:3px;overflow:hidden;margin:.4rem 0}
+.progress .bar{height:100%;background:linear-gradient(90deg,#e94560,#ff6b81);border-radius:3px;transition:width .3s;width:0%}
+canvas.vis{width:100%;height:80px;background:#0a0a15;border-radius:8px;display:block;margin:.5rem 0}
+.preview{display:flex;gap:2px;border-radius:4px;overflow:hidden;height:22px;margin-top:.4rem}
+.bdg{background:#2c3e50;padding:.15rem .5rem;border-radius:4px;font-size:.63rem;white-space:nowrap}
+hr{border:none;border-top:1px solid #222;margin:.7rem 0}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 PiBridge</h1>
+  <span class="tag">Audio Reactive LED Controller</span>
+  <span id="cs" class="stat err">Disconnected</span>
+  <button id="cb">🔗 Connect BLE</button>
+</header>
+
+<div class="grid">
+
+  <!-- ═══════ USB FLASH ═══════ -->
+  <div class="card">
+    <h2>🔌 USB Boot (rpiboot) — No SD Card</h2>
+
+    <div class="step"><span class="num">1</span> Connect Pi Zero W via USB cable (power + data)</div>
+    <div class="step"><span class="num">2</span> Hold <strong>BOOT</strong> button (GPIO 21 to GND), power on</div>
+    <div class="step"><span class="num">3</span> Click <strong>"🚀 Boot over USB"</strong> — select Pi in USB picker</div>
+    <div class="step"><span class="num">4</span> Browser sends bootcode.bin → Pi boots our firmware via USB</div>
+
+    <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
+      Uses WebUSB vendor control + bulk transfers to implement the rpiboot protocol.
+      Pi boots entirely over USB cable — no SD card needed.
+      <strong>Chrome/Edge with WebUSB support.</strong>
+    </p>
+
+    <div id="usbBootLog" class="log"><span class="dim">Connect Pi in USB boot mode, then click Boot.</span></div>
+
+    <div class="row" style="gap:.6rem">
+      <button id="usbBootBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">🚀  Boot over USB</button>
+    </div>
+
+    <div class="hint">
+      Pi Zero W must be in <strong>USB boot mode</strong>: hold BOOT (GPIO 21) while connecting power.
+      <code>lsusb</code> should show <code style="color:#2ecc71">0a5c:2763 BCM2708 Boot</code>.
+      Works on real hardware. No QEMU support for this step.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💾 Flash SD Card via USB</h2>
+
+    <div class="step"><span class="num">1</span> Insert SD card into <strong>USB card reader</strong> and connect to PC</div>
+    <div class="step"><span class="num">2</span> Click <strong>"📀 Flash SD Card"</strong> — select your reader in the USB picker</div>
+    <div class="step"><span class="num">3</span> Browser writes PiBridge boot image <strong>directly to raw blocks</strong> (like dd)</div>
+    <div class="step"><span class="num">4</span> Put SD card in Pi, power on — connects via BLE</div>
+
+    <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
+      Uses WebUSB to write a bootable disk image directly to your SD card. <strong>Chrome or Edge required.</strong>
+    </p>
+
+    <div id="sdLog" class="log"><span class="dim">Insert SD card reader, then click Flash.</span></div>
+    <div class="progress"><div class="bar" id="sdBar"></div></div>
+
+    <div class="row" style="gap:.6rem">
+      <button id="sdBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">📀  Flash SD Card</button>
+      <a href="pibridge-sd.img.gz" download style="background:#2c3e50;color:#fff;border:none;padding:.45rem 1rem;border-radius:6px;cursor:pointer;font-weight:500;text-decoration:none;font-size:.8rem;white-space:nowrap">⬇ .img.gz</a>
+    </div>
+
+    <div class="hint">
+      <strong>⚠️  All data on the SD card will be overwritten.</strong>
+      The image contains a FAT32 boot partition with PiBridge firmware.
+      ~33 MB image, writes in a few seconds.
+    </div>
+  </div>
+
+  <!-- ═══════ MUSIC REACTIVE ═══════ -->
+  <div class="card">
+    <h2>🎵 Music Reactive <span style="font-size:.58rem;color:#888;font-weight:400">works in browser</span></h2>
+    <div class="row">
+      <button id="audioBtn" class="green" style="flex:1">🎤 Start Microphone</button>
+    </div>
+    <canvas class="vis" id="av"></canvas>
+    <div class="row" style="gap:.6rem;justify-content:center">
+      <span class="bdg" style="background:#e74c3c">Bass <span id="bv">0</span></span>
+      <span class="bdg" style="background:#2ecc71">Mid <span id="mv">0</span></span>
+      <span class="bdg" style="background:#3498db">Treble <span id="tv">0</span></span>
+      <span class="bdg" style="background:#9b59b6">BPM <span id="bpmv">—</span></span>
+      <span id="btb" class="bdg" style="background:#555">⚡</span>
+    </div>
+    <div class="row" style="margin-top:.5rem">
+      <label>Pattern</label>
+      <select id="ps" style="flex:1">
+        <option value="1">Solid Color</option>
+        <option value="2">Rainbow</option>
+        <option value="3">Breathe</option>
+        <option value="4">Theater Chase</option>
+        <option value="5" selected>🎵 Audio Reactive</option>
+      </select>
+      <input type="color" id="pc" value="#ff0044">
+    </div>
+    <div class="row">
+      <button id="startBtn" style="flex:1">▶ Start Preview</button>
+      <button class="sec" id="stopBtn">■ Stop</button>
+      <label>Speed</label>
+      <input type="range" id="pspd" min="1" max="255" value="80" style="width:3.5rem">
+      <span id="pspdv" class="val">80</span>
+    </div>
+    <div class="row">
+      <label>Bright</label>
+      <input type="range" id="pb" min="0" max="255" value="128" style="flex:1;max-width:6rem">
+      <label style="min-width:auto">LEDs</label>
+      <input type="number" id="ledc" value="60" min="1" max="500" style="width:3.5rem">
+      <button class="sec sm" id="sendBtn">Send to Pi</button>
+    </div>
+    <div class="preview" id="pv"></div>
+  </div>
+
+  <!-- ═══════ GPIO ═══════ -->
+  <div class="card">
+    <h2>⚡ GPIO (after BLE connect)</h2>
+    <div class="row">
+      <label>Pin</label>
+      <input type="number" id="gp" value="17" min="2" max="27" style="width:4rem">
+      <button id="hi" class="green" style="min-width:4rem">HIGH</button>
+      <button id="lo" style="min-width:4rem">LOW</button>
+      <button class="sec" id="tog">Toggle</button>
+    </div>
+    <div class="row">
+      <label>PWM</label>
+      <input type="range" id="pwm" min="0" max="100" value="0" style="width:6rem">
+      <span id="pwmV" class="val" style="min-width:auto">0%</span>
+      <button class="sec sm" id="pwmBtn">Set PWM</button>
+    </div>
+    <div class="row">
+      <label>Servo</label>
+      <input type="range" id="sv" min="0" max="180" value="90" style="width:6rem">
+      <span id="svV" class="val" style="min-width:auto">90°</span>
+      <button class="sec sm" id="svBtn">Set</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+
+// ═══════════════════════════════════════════════════════════════════════
+// 1. USB FLASH — Write raw disk image to SD card via WebUSB + SCSI
+// ═══════════════════════════════════════════════════════════════════════
+// Implements USB Mass Storage Bulk-Only Transport (BOT) protocol
+// to send SCSI WRITE10 commands. Downloads .img.gz, decompresses,
+// writes raw blocks — like dd over the web.
+//
+// Protocol:
+//   CBW (31 B): signature + tag + data len + flags + LUN + CDB len + CDB
+//   Data phase (IN or OUT based on flags)
+//   CSW (13 B): signature + tag + residue + status
+//
+// Chrome/Edge on modern OS handles driver access automatically.
+
+let sdLog = $('sdLog');
+
+function sdLogMsg(cls, msg) {
+  sdLog.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
+  sdLog.scrollTop = sdLog.scrollHeight;
+}
+function sdBar(pct) { $('sdBar').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
+
+let sdDevice = null;
+
+$('sdBtn').onclick = async () => {
+  sdLog.innerHTML = '';
+  sdBar(0);
+
+  try {
+    // ── 1. Detect USB mass storage device ────────────────────────
+    if (!navigator.usb) {
+      sdLogMsg('r', '❌ WebUSB not supported. Use Chrome or Edge.');
+      return;
+    }
+
+    sdLogMsg('b', '🔍 Detecting SD card reader...');
+    let devs = await navigator.usb.getDevices();
+    let dev = devs.find(d => d.configurations.some(c =>
+      c.interfaces.some(i => i.alternates.some(a => a.interfaceClass === 8))
+    ));
+
+    if (!dev) {
+      sdLogMsg('dim', '   Opening USB device picker...');
+      sdLogMsg('dim', '   Select your SD card reader from the list.');
+      // Request any mass storage device (class 8)
+      dev = await navigator.usb.requestDevice({
+        filters: []  // Show all devices, user picks
+      });
+    }
+
+    if (!dev) { sdLogMsg('r', '❌ No device selected'); return; }
+    sdDevice = dev;
+    sdLogMsg('g', '✅ Device: ' + (dev.productName || 'USB Storage'));
+
+    await dev.open();
+    sdLogMsg('g', '✅ Device opened');
+
+    // Find mass storage interface and endpoints
+    let cfg = dev.configuration || dev.configurations[0];
+    await dev.selectConfiguration(cfg.configurationValue);
+
+    let iface = null, epIn = null, epOut = null;
+    for (const i of cfg.interfaces) {
+      for (const alt of i.alternates) {
+        if (alt.interfaceClass === 8) {  // Mass Storage
+          iface = i;
+          for (const ep of alt.endpoints) {
+            if (ep.direction === 'in') epIn = ep.endpointNumber;
+            if (ep.direction === 'out') epOut = ep.endpointNumber;
+          }
+          break;
+        }
+      }
+      if (iface) break;
+    }
+
+    if (!iface || !epIn || !epOut) {
+      sdLogMsg('r', '❌ No mass storage interface found on this device.');
+      sdLogMsg('dim', '   Make sure a USB SD card reader is connected.');
+      return;
+    }
+
+    try {
+      await dev.claimInterface(iface.interfaceNumber);
+    } catch(e) {
+      sdLogMsg('r', '❌ Cannot access SD card reader: ' + e.message);
+      sdLogMsg('dim', '   Try unplugging and reconnecting the reader, then click Flash again.');
+      sdLogMsg('dim', '   Close other programs that might be using the SD card.');
+      return;
+    }
+
+    sdLogMsg('g', '✅ Interface claimed');
+    sdLogMsg('dim', `   EP OUT: 0x${epOut.toString(16)}, EP IN: 0x${epIn.toString(16)}`);
+
+    // ── 2. Reset BOT state machine ───────────────────────────────
+    sdLogMsg('b', '🔧 Initializing mass storage protocol...');
+    try {
+      // Mass Storage Reset (class-specific request)
+      await dev.controlTransferOut({
+        requestType: 'class',
+        recipient: 'interface',
+        request: 0xFF,
+        value: 0,
+        index: iface.interfaceNumber
+      });
+    } catch(e) { /* might fail if not needed */ }
+
+    // Clear endpoint stalls
+    try { await dev.clearHalt('out', epOut); } catch(e) {}
+    try { await dev.clearHalt('in', epIn); } catch(e) {}
+
+    // ── 3. SCSI helper ───────────────────────────────────────────
+    let tagCounter = 0;
+
+    async function scsiExec(cdb, dataInLen, dataOut) {
+      tagCounter++;
+      const tag = (tagCounter * 0x1000000 + Date.now()) >>> 0;
+      const flags = dataInLen ? 0x80 : 0x00;
+      const dataLen = dataInLen || (dataOut ? dataOut.byteLength : 0);
+
+      // Build CBW (31 bytes)
+      const cbw = new ArrayBuffer(31);
+      const dv = new DataView(cbw);
+      dv.setUint32(0, 0x43425355, true);  // 'USBC'
+      dv.setUint32(4, tag, true);
+      dv.setUint32(8, dataLen, true);
+      dv.setUint8(12, flags);
+      dv.setUint8(13, 0);                 // LUN = 0
+      dv.setUint8(14, cdb.byteLength);    // CDB length
+      new Uint8Array(cbw, 15).set(new Uint8Array(cdb));  // CDB
+
+      // Send CBW
+      await dev.transferOut(epOut, new Uint8Array(cbw));
+
+      // Data phase
+      let result = null;
+      if (dataOut) {
+        await dev.transferOut(epOut, dataOut);
+      } else if (dataInLen > 0) {
+        const res = await dev.transferIn(epIn, dataInLen);
+        result = res.data;
+      }
+
+      // Read CSW
+      const cswRes = await dev.transferIn(epIn, 13);
+      const csw = new DataView(cswRes.data.buffer);
+      return csw.getUint8(12) === 0 ? result : null;
+    }
+
+    // ── 4. Verify device with INQUIRY ────────────────────────────
+    sdLogMsg('b', '🔍 Verifying SCSI device...');
+    const inquiryRes = await scsiExec(new Uint8Array([0x12, 0, 0, 0, 36, 0]).buffer, 36);
+    if (!inquiryRes) { sdLogMsg('r', '❌ INQUIRY failed'); return; }
+    const vendor = new TextDecoder().decode(inquiryRes.slice(8, 16)).replace(/\0/g,'');
+    const product = new TextDecoder().decode(inquiryRes.slice(16, 32)).replace(/\0/g,'');
+    sdLogMsg('g', `   ${vendor} ${product}`);
+
+    // ── 5. READ CAPACITY ─────────────────────────────────────────
+    sdLogMsg('b', '📏 Reading capacity...');
+    const capCdb = new Uint8Array([0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0]).buffer;
+    let capRes = await scsiExec(capCdb, 8);
+    if (!capRes) {
+      sdLogMsg('dim', '   Trying READ CAPACITY (16)...');
+      const cap16Cdb = new Uint8Array([0x9E, 0x10, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0]).buffer;
+      capRes = await scsiExec(cap16Cdb, 32);
+      if (capRes) {
+        const lba = new DataView(capRes.buffer).getBigUint64(0, false);
+        const bs = new DataView(capRes.buffer).getUint32(8, false);
+        sdLogMsg('g', `   ${Number(lba)+1} blocks × ${bs} bytes`);
+      }
+    } else {
+      const lba = new DataView(capRes.buffer).getUint32(0, false);
+      const bs = new DataView(capRes.buffer).getUint32(4, false);
+      sdLogMsg('g', `   ${lba+1} blocks × ${bs} bytes`);
+    }
+    if (!capRes) { sdLogMsg('r', '❌ READ CAPACITY failed'); return; }
+
+    // ── 6. Download + decompress + write image ───────────────────
+    sdLogMsg('b', '📥 Downloading PiBridge boot image (33 MB)...');
+    const imgResp = await fetch('pibridge-sd.img.gz');
+    if (!imgResp.ok) { sdLogMsg('r', '❌ Failed to download image'); return; }
+    
+    // Download entire .gz, then decompress in one shot
+    const gzBlob = await imgResp.blob();
+    const gzBuf = await gzBlob.arrayBuffer();
+    sdLogMsg('g', '✅ Downloaded, decompressing...');
+    
+    // Decompress gzip
+    const cs = new DecompressionStream('gzip');
+    const writer = cs.writable.getWriter();
+    writer.write(new Uint8Array(gzBuf));
+    writer.close();
+    const reader = cs.readable.getReader();
+    
+    // Read all decompressed data
+    const chunks = [];
+    let totalLen = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      totalLen += value.byteLength;
+    }
+    
+    // Combine into one Uint8Array
+    const image = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) {
+      image.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    
+    const totalBlocks = Math.ceil(image.length / 512);
+    sdLogMsg('g', `✅ Decompressed: ${(totalLen/1024/1024).toFixed(0)} MB, ${totalBlocks} blocks`);
+    sdLogMsg('b', '💾 Writing raw blocks to SD card...');
+
+    // Write blocks in batches of 128 blocks (64 KB per batch)
+    const BLOCK_SIZE = 512;
+    const BATCH_BLOCKS = 128;
+    for (let lba = 0; lba < totalBlocks; lba += BATCH_BLOCKS) {
+      const nBlocks = Math.min(BATCH_BLOCKS, totalBlocks - lba);
+      const data = image.slice(lba * BLOCK_SIZE, (lba + nBlocks) * BLOCK_SIZE);
+      
+      // SCSI WRITE10
+      const cdb = new ArrayBuffer(10);
+      const dv = new DataView(cdb);
+      dv.setUint8(0, 0x2A);              // WRITE10
+      dv.setUint32(2, lba, false);       // LBA (big-endian)
+      dv.setUint16(7, nBlocks, false);   // Transfer length
+      
+      const ok = await scsiExec(cdb, 0, data);
+      if (ok === null) {
+        sdLogMsg('r', `❌ WRITE10 failed at LBA ${lba}/${totalBlocks}`);
+        sdLogMsg('dim', '   SD card write-protected or too small.');
+        return;
+      }
+      
+      sdBar(5 + (lba / totalBlocks) * 90);
+    }
+
+    // ── 7. Done ──────────────────────────────────────────────────
+    sdBar(100);
+    sdLogMsg('b', '🎉 Bootable SD card created!');
+    sdLogMsg('dim', '⏳ Eject safely, insert in Pi Zero W, power on.');
+    sdLogMsg('dim', '⏳ Pi boots and advertises as "PiBridge" via BLE in ~25s.');
+    sdLogMsg('dim', '⏳ Then click "Connect BLE" in the header.');
+
+  } catch(e) {
+    sdLogMsg('r', '❌ ' + (e.message || e));
+    sdBar(0);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// 2. BLE CONNECTION
+// ═══════════════════════════════════════════════════════════════════════
+
+const SVC = '4d697272-6f72-0000-0000-000000000000';
+const CH = {
+  do:'4d697272-6f72-0002-0000-000000000000',
+  wf:'4d697272-6f72-0007-0000-000000000000',
+  wm:'4d697272-6f72-0008-0000-000000000000',
+  au:'4d697272-6f72-0009-0000-000000000000',
+  pw:'4d697272-6f72-0004-0000-000000000000',
+  sv:'4d697272-6f72-0005-0000-000000000000',
+};
+
+let bd, bs, bsvc, bch = {}, bcon = false;
+
+async function bleConnect() {
+  try {
+    bd = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'PiBridge' }],
+      optionalServices: [SVC]
+    });
+    bs = await bd.gatt.connect();
+    bsvc = await bs.getPrimaryService(SVC);
+    for (const [n, u] of Object.entries(CH))
+      bch[n] = await bsvc.getCharacteristic(u);
+    bcon = true;
+    $('cs').textContent = 'Connected';
+    $('cs').className = 'stat ok';
+    $('cb').textContent = '❌ Disconnect';
+    bd.addEventListener('gattserverdisconnected', () => {
+      bcon = false; $('cs').textContent = 'Disconnected';
+      $('cs').className = 'stat err'; $('cb').textContent = '🔗 Connect BLE';
+      bch = {};
+    });
+  } catch(e) {
+    $('cs').textContent = 'Error: ' + e.message;
+    $('cs').className = 'stat err';
+  }
+}
+
+$('cb').onclick = () => {
+  if (bcon) { if(bd&&bd.gatt)bd.gatt.disconnect(); }
+  else bleConnect();
+};
+
+function wc(n, d) { if(bch[n]) try{bch[n].writeValue(d)}catch(e){} }
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3. AUDIO REACTIVE ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+
+let actx, an, src, ad, aOn = false;
+let aB=0,aM=0,aT=0,aBpm=0,aBeat=false, aHist=[], aLast=0, aFid=null;
+
+$('audioBtn').onclick = async () => {
+  if (aOn) { aOn=false; if(actx)actx.close(); $('audioBtn').textContent='🎤 Start Microphone'; if(aFid){cancelAnimationFrame(aFid);aFid=null} return; }
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({audio:true,echoCancellation:false});
+    actx = new AudioContext(); an = actx.createAnalyser(); an.fftSize = 128;
+    src = actx.createMediaStreamSource(s); src.connect(an);
+    ad = new Uint8Array(an.frequencyBinCount); aOn = true;
+    $('audioBtn').textContent = '⏹ Stop Mic';
+    (function loop() {
+      if (!aOn) { aFid=null; return; }
+      an.getByteFrequencyData(ad);
+      aB = avg(0,2); aM = avg(2,8); aT = avg(8, ad.length-1);
+      const tot = aB + aM + aT;
+      aHist.push(tot); if (aHist.length > 43) aHist.shift();
+      const avgE = aHist.reduce((a,b)=>a+b,0) / aHist.length;
+      aBeat = aHist.length > 15 && tot > avgE * 1.4;
+      const n = performance.now();
+      if (aBeat) { const dt = n - aLast; if (dt > 180 && dt < 2500) aBpm = Math.round(60000/dt); aLast = n; }
+      $('bv').textContent = Math.round(aB);
+      $('mv').textContent = Math.round(aM);
+      $('tv').textContent = Math.round(aT);
+      $('bpmv').textContent = aBpm || '—';
+      const be = $('btb');
+      if (aBeat) { be.style.background = '#e94560'; be.textContent = '⚡ BEAT'; setTimeout(()=>{be.style.background='#555';be.textContent='⚡';},120); }
+      if (bcon && bch.au) {
+        const b = new Uint8Array(6);
+        b[0] = Math.round(aB); b[1] = Math.round(aM); b[2] = Math.round(aT);
+        b[3] = aBpm & 0xFF; b[4] = (aBpm >> 8) & 0xFF; b[5] = aBeat ? 1 : 0;
+        wc('au', b);
+      }
+      drawVis();
+      aFid = requestAnimationFrame(loop);
+    })();
+  } catch(e) { $('audioBtn').textContent = '❌ ' + e.message; }
+};
+
+function avg(s, e) { let su = 0; for (let i = s; i <= e; i++) su += ad[i]; return su / (e - s + 1); }
+
+function drawVis() {
+  const c = $('av'); if (!c || !ad) return;
+  const ctx = c.getContext('2d'), w = c.width, h = c.height;
+  ctx.clearRect(0, 0, w, h);
+  const bw = w / ad.length;
+  for (let i = 0; i < ad.length; i++) {
+    const bh = (ad[i] / 255) * h;
+    ctx.fillStyle = 'hsl(' + ((i * 4 + 180) % 360) + ', 80%, 60%)';
+    ctx.fillRect(i * bw, h - bh, Math.max(1, bw - 1), bh);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 4. LED PATTERNS
+// ═══════════════════════════════════════════════════════════════════════
+
+let patRun = false, patFid = null, patTick = 0;
+
+$('pspd').oninput = () => $('pspdv').textContent = $('pspd').value;
+$('sv').oninput = () => $('svV').textContent = $('sv').value + '°';
+
+$('startBtn').onclick = () => {
+  patRun = true; patTick = 0;
+  const c = $('pc').value, r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+  const bright = parseInt($('pb').value), spd = parseInt($('pspd').value), count = parseInt($('ledc').value);
+  if (!patFid) (function step() {
+    if (!patRun) { patFid = null; return; }
+    patTick++;
+    const id = parseInt($('ps').value);
+    const f = genF(id, count, {r,g,b,bright,speed:spd, as:aOn?{bass:aB,mid:aM,treble:aT,beat:aBeat}:null}, patTick);
+    if (bcon && bch.wf) wc('wf', f);
+    renderP(f);
+    patFid = requestAnimationFrame(step);
+  })();
+};
+
+$('stopBtn').onclick = () => { patRun = false; };
+
+$('sendBtn').onclick = () => {
+  const id = parseInt($('ps').value);
+  const c = $('pc').value, r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+  const spd = parseInt($('pspd').value), count = parseInt($('ledc').value);
+  if (bcon && bch.wm) wc('wm', new Uint8Array([18, id, spd, r, g, b, count & 0xFF, (count >> 8) & 0xFF]));
+};
+
+function genF(id, c, p, tick) {
+  const f = new Uint8Array(c * 3);
+  const {r=255,g=255,b=255,bright=128,speed=80,as}=p;
+  const br = bright/255, s = speed/255;
+  if (id === 1) { for (let i=0;i<c;i++) f[i*3]=Math.round(r*br),f[i*3+1]=Math.round(g*br),f[i*3+2]=Math.round(b*br); return f; }
+  if (id === 2) { for (let i=0;i<c;i++) { const h=((i/c)+(tick*s*0.005))%1; const[cr,cg,cb]=hsv(h,1,1); f[i*3]=Math.round(cr*br);f[i*3+1]=Math.round(cg*br);f[i*3+2]=Math.round(cb*br); } return f; }
+  if (id === 3) { const b2 = Math.sin(tick*s*0.04)*0.5+0.5; for (let i=0;i<c;i++) f[i*3]=Math.round(r*br*b2),f[i*3+1]=Math.round(g*br*b2),f[i*3+2]=Math.round(b*br*b2); return f; }
+  if (id === 4) { for (let i=0;i<c;i++) f[i*3]=Math.round(r*br*(i%3===tick%3?255:0)/255),f[i*3+1]=Math.round(g*br*(i%3===tick%3?255:0)/255),f[i*3+2]=Math.round(b*br*(i%3===tick%3?255:0)/255); return f; }
+  if (id === 5 && as) {
+    const {bass,mid,treble,beat}=as;
+    for (let i=0;i<c;i++) {
+      const pct = i/c;
+      const v = pct < 1/3 ? bass/255 : pct < 2/3 ? mid/255 : treble/255;
+      f[i*3] = Math.round((r/255)*v*255*br);
+      f[i*3+1] = Math.round((g/255)*v*255*br);
+      f[i*3+2] = Math.round((b/255)*v*255*br);
+    }
+    if (beat) for (let i=0;i<c;i++) f[i*3]=Math.min(255,f[i*3]+100),f[i*3+1]=Math.min(255,f[i*3+1]+100),f[i*3+2]=Math.min(255,f[i*3+2]+100);
+    return f;
+  }
+  for (let i=0;i<c;i++) f[i*3]=Math.round(r*br),f[i*3+1]=Math.round(g*br),f[i*3+2]=Math.round(b*br);
+  return f;
+}
+
+function hsv(h,s,v) {
+  const i=Math.floor(h*6), f=h*6-i, p=v*(1-s), q=v*(1-f*s), t=v*(1-(1-f)*s);
+  const map = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]];
+  return map[i%6].map(x=>Math.round(x*255));
+}
+
+function renderP(f) {
+  const d = $('pv'); d.innerHTML = '';
+  const step = Math.max(1, Math.floor(f.length / 3 / 60));
+  for (let i = 0; i < Math.min(60, f.length/3); i++) {
+    const idx = i * step * 3;
+    const e = document.createElement('div');
+    e.style.cssText = 'flex:1;height:100%;background:rgb('+f[idx]+','+f[idx+1]+','+f[idx+2]+')';
+    d.appendChild(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 5. GPIO
+// ═══════════════════════════════════════════════════════════════════════
+
+let gpioState = {};
+
+$('hi').onclick = () => sg(1);
+$('lo').onclick = () => sg(0);
+$('tog').onclick = () => {
+  if (!bcon) return;
+  const pin = parseInt($('gp').value);
+  const current = gpioState[pin] || 0;
+  sg(current ? 0 : 1);
+};
+
+function sg(v) {
+  if (!bcon) return;
+  const pin = parseInt($('gp').value);
+  gpioState[pin] = v;
+  const mask = 1 << pin, vals = v ? mask : 0;
+  const b = new ArrayBuffer(8);
+  const dv = new DataView(b);
+  dv.setUint32(0, mask >>> 0, true);
+  dv.setUint32(4, vals >>> 0, true);
+  wc('do', b);
+}
+
+$('pwm').oninput = () => $('pwmV').textContent = $('pwm').value + '%';
+$('pwmBtn').onclick = () => {
+  if (!bcon) return;
+  const p = parseInt($('gp').value), d = parseInt($('pwm').value);
+  const b = new Uint8Array(5);
+  b[0] = p; b[1] = d; b[2] = 0xE8; b[3] = 0x03;
+  wc('pw', b);
+};
+
+$('svBtn').onclick = () => {
+  if (!bcon) return;
+  const p = parseInt($('gp').value), angle = parseInt($('sv').value);
+  const pulse = 500 + (angle / 180) * 2500;
+  const b = new Uint8Array(5);
+  b[0] = p; b[1] = 0; b[2] = pulse & 0xFF; b[3] = (pulse >> 8) & 0xFF;
+  wc('sv', b);
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// 2. USB BOOT (rpiboot) — Boot Pi Zero W directly over USB via WebUSB
+// ═══════════════════════════════════════════════════════════════════════
+// Implements the rpiboot protocol:
+//   Phase 1: Send bootcode.bin via vendor control + bulk OUT
+//   Phase 2: File server — serve kernel.img on request
+// Pi boots entirely over USB cable, no SD card needed.
+
+const USB_BOOT_LOG = $('usbBootLog');
+const USB_BOOT_BTN = $('usbBootBtn');
+
+function usbLog(cls, msg) {
+  USB_BOOT_LOG.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
+  USB_BOOT_LOG.scrollTop = USB_BOOT_LOG.scrollHeight;
+}
+
+// Fetch boot files from GitHub Pages
+async function fetchBootFiles() {
+  const base = location.href.replace(/\/[^/]*$/, '');
+  
+  const [bootcodeResp, kernelResp] = await Promise.all([
+    fetch(base + '/bootcode.bin').catch(() => fetch(base + '/rpiboot/bootcode.bin')),
+    fetch(base + '/kernel.img')
+  ]);
+  
+  if (!bootcodeResp.ok) throw new Error('bootcode.bin not found at ' + base);
+  if (!kernelResp.ok) throw new Error('kernel.img not found at ' + base);
+  
+  const bootcode = new Uint8Array(await bootcodeResp.arrayBuffer());
+  const kernel = new Uint8Array(await kernelResp.arrayBuffer());
+  return { bootcode, kernel };
+}
+
+USB_BOOT_BTN.onclick = async () => {
+  USB_BOOT_LOG.innerHTML = '';
+  USB_BOOT_BTN.disabled = true;
+  USB_BOOT_BTN.textContent = '⏳ Booting...';
+
+  try {
+    if (!navigator.usb) {
+      usbLog('r', '❌ WebUSB not supported. Use Chrome or Edge.');
+      return;
+    }
+
+    usbLog('b', '📥 Loading boot files...');
+    const { bootcode, kernel } = await fetchBootFiles();
+    usbLog('g', '   bootcode.bin: ' + bootcode.length + ' bytes');
+    usbLog('g', '   kernel.img:   ' + kernel.length + ' bytes');
+
+    // Request device
+    usbLog('b', '🔍 Select your Pi Zero W (0a5c:2763) in the USB picker...');
+    const device = await navigator.usb.requestDevice({
+      filters: [{ vendorId: 0x0a5c }]
+    });
+
+    await device.open();
+    await device.selectConfiguration(1);
+    await device.claimInterface(0);
+
+    // Find endpoints
+    const iface = device.configuration.interfaces[0];
+    let outEp;
+    for (const alt of iface.alternates) {
+      for (const ep of alt.endpoints) {
+        if (ep.direction === 'out') outEp = ep.endpointNumber;
+      }
+    }
+    usbLog('g', '   Connected, OUT EP' + outEp);
+
+    // Phase 1: Send bootcode.bin
+    usbLog('b', '📤 Phase 1: Sending bootcode.bin (' + bootcode.length + ' bytes)...');
+    
+    // ep_write helper: signal length via control OUT, then send data via bulk OUT
+    async function epWrite(device, outEp, data) {
+      await device.controlTransferOut({
+        requestType: 'vendor',
+        recipient: 'device',
+        request: 0,
+        value: data.length & 0xffff,
+        index: data.length >> 16
+      });
+      const C = 65536;
+      let off = 0;
+      while (off < data.length) {
+        const chunk = data.slice(off, off + C);
+        await device.transferOut(outEp, chunk);
+        off += C;
+      }
+      return data.length;
+    }
+
+    // Step 1: Send boot_message { length=52624, signature=all_zeros } = 24 bytes
+    const bootMsg = new ArrayBuffer(24);
+    const bootMsgView = new DataView(bootMsg);
+    bootMsgView.setUint32(0, bootcode.length, true);  // length in little-endian
+    // rest is zero-filled (signature)
+    usbLog('dim', '   Sending boot_message (length=' + bootcode.length + ', sig=0)...');
+    await epWrite(device, outEp, new Uint8Array(bootMsg));
+    
+    // Step 2: Send bootcode.bin payload
+    usbLog('dim', '   Sending bootcode payload...');
+    await epWrite(device, outEp, bootcode);
+    usbLog('g', '   Sent ' + bootcode.length + ' bytes');
+
+    // Step 3: Read return code
+    const result = await device.controlTransferIn({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 0,
+      value: 4 & 0xffff,
+      index: 4 >> 16
+    }, 4);
+    
+    const retcode = new DataView(result.buffer).getUint32(0, true);
+    usbLog(retcode === 0 ? 'g' : 'r',
+      '   Return code: 0x' + retcode.toString(16) + (retcode === 0 ? ' ✓' : ' ✗'));
+
+    if (retcode !== 0) {
+      throw new Error('bootcode.bin returned error ' + retcode);
+    }
+
+    // Pi will disconnect and re-enumerate
+    usbLog('dim', '⏳ Pi re-enumerating... (may take a few seconds)');
+    device.ondisconnect = () => usbLog('dim', '   Pi disconnected (expected)');
+    await device.close();
+
+    // Wait for re-enumeration
+    const waitForReenum = async (timeoutMs = 15000) => {
+      const pollInt = 250;
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const devs = await navigator.usb.getDevices();
+        const pi = devs.find(d => d.vendorId === 0x0a5c &&
+          [0x2763, 0x2764, 0x2711, 0x2712].includes(d.productId));
+        if (pi) {
+          try {
+            await pi.open();
+            await pi.selectConfiguration(1);
+            await pi.claimInterface(0);
+            return pi;
+          } catch(e) {
+            try { await pi.close(); } catch(_) {}
+          }
+        }
+        await new Promise(r => setTimeout(r, pollInt));
+      }
+      throw new Error('Pi did not re-enumerate');
+    };
+
+    const newDevice = await waitForReenum();
+    usbLog('g', '   Pi re-connected ✓');
+
+    // Find OUT endpoint on new device
+    const newIface = newDevice.configuration.interfaces[0];
+    let newOutEp;
+    for (const alt of newIface.alternates) {
+      for (const ep of alt.endpoints) {
+        if (ep.direction === 'out') newOutEp = ep.endpointNumber;
+      }
+    }
+
+    // Phase 2: File server
+    usbLog('b', '📂 Phase 2: File server — serving kernel.img (' + kernel.length + ' bytes)...');
+    
+    const cmdNames = ['GetFileSize', 'ReadFile', 'Done'];
+    let going = true;
+
+    while (going) {
+      const msgBuf = await newDevice.controlTransferIn({
+        requestType: 'vendor',
+        recipient: 'device',
+        request: 0,
+        value: 260 & 0xffff,
+        index: 260 >> 16
+      }, 260);
+
+      if (!msgBuf || !msgBuf.buffer) break;
+
+      const view = new DataView(msgBuf.buffer);
+      const command = view.getInt32(0, true);
+      let filename = '';
+      for (let i = 4; i < 260; i++) {
+        const c = view.getUint8(i);
+        if (c === 0) break;
+        filename += String.fromCharCode(c);
+      }
+
+      const name = cmdNames[command] || 'CMD' + command;
+      usbLog('dim', '   ' + name + ' "' + filename + '"');
+
+      switch (command) {
+        case 0: { // GetFileSize
+          const isKernel = /^kernel\d*\.img$/.test(filename);
+          const size = isKernel ? kernel.length : 0;
+          await newDevice.controlTransferOut({
+            requestType: 'vendor',
+            recipient: 'device',
+            request: 0,
+            value: size & 0xffff,
+            index: size >> 16
+          });
+          if (size > 0) usbLog('g', '     -> ' + size + ' bytes');
+          break;
+        }
+        case 1: { // ReadFile
+          const isKernel = /^kernel\d*\.img$/.test(filename);
+          if (isKernel) {
+            usbLog('g', '     -> Sending ' + kernel.length + ' bytes...');
+            await epWrite(newDevice, newOutEp, kernel);
+            usbLog('g', '     -> Sent ✓');
+          } else {
+            await epWrite(newDevice, newOutEp, new Uint8Array(0));
+          }
+          break;
+        }
+        case 2: // Done
+          usbLog('g', '✅ Done! ARM is now booting PiBridge firmware.');
+          going = false;
+          break;
+      }
+    }
+
+    await newDevice.close();
+    usbLog('g', '🎉 Pi booted successfully over USB!');
+
+  } catch (err) {
+    usbLog('r', '❌ Error: ' + err.message);
+    console.error(err);
+  } finally {
+    USB_BOOT_BTN.disabled = false;
+    USB_BOOT_BTN.textContent = '🚀  Boot over USB';
+  }
+};
+
+console.log('🔧 PiBridge — One Click Flash + Audio Reactive + USB Boot');
+console.log('📖 https://sylchi.github.io/pibridge/');
+})();
+</script>
+</body>
+</html>
