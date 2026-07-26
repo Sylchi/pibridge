@@ -1,8 +1,0 @@
-# PiBridge boot config
-kernel=kernel.img
-initramfs initramfs.gz
-arm_64bit=0
-gpu_mem=64
-dtparam=audio=on
-dtoverlay=dwc2
-enable_uart=1

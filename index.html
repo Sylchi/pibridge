@@ -61,6 +61,33 @@ hr{border:none;border-top:1px solid #222;margin:.7rem 0}
 
   <!-- ═══════ USB FLASH ═══════ -->
   <div class="card">
+    <h2>🔌 USB Boot (rpiboot) — No SD Card</h2>
+
+    <div class="step"><span class="num">1</span> Connect Pi Zero W via USB cable (power + data)</div>
+    <div class="step"><span class="num">2</span> Hold <strong>BOOT</strong> button (GPIO 21 to GND), power on</div>
+    <div class="step"><span class="num">3</span> Click <strong>"🚀 Boot over USB"</strong> — select Pi in USB picker</div>
+    <div class="step"><span class="num">4</span> Browser sends bootcode.bin → Pi boots our firmware via USB</div>
+
+    <p style="font-size:.76rem;color:#6c6c8a;margin-bottom:.6rem">
+      Uses WebUSB vendor control + bulk transfers to implement the rpiboot protocol.
+      Pi boots entirely over USB cable — no SD card needed.
+      <strong>Chrome/Edge with WebUSB support.</strong>
+    </p>
+
+    <div id="usbBootLog" class="log"><span class="dim">Connect Pi in USB boot mode, then click Boot.</span></div>
+
+    <div class="row" style="gap:.6rem">
+      <button id="usbBootBtn" class="green" style="flex:1;font-size:.9rem;padding:.55rem">🚀  Boot over USB</button>
+    </div>
+
+    <div class="hint">
+      Pi Zero W must be in <strong>USB boot mode</strong>: hold BOOT (GPIO 21) while connecting power.
+      <code>lsusb</code> should show <code style="color:#2ecc71">0a5c:2763 BCM2708 Boot</code>.
+      Works on real hardware. No QEMU support for this step.
+    </div>
+  </div>
+
+  <div class="card">
     <h2>💾 Flash SD Card via USB</h2>
 
     <div class="step"><span class="num">1</span> Insert SD card into <strong>USB card reader</strong> and connect to PC</div>
@@ -637,7 +664,231 @@ $('svBtn').onclick = () => {
   wc('sv', b);
 };
 
-console.log('🔧 PiBridge — One Click Flash + Audio Reactive');
+// ═══════════════════════════════════════════════════════════════════════
+// 2. USB BOOT (rpiboot) — Boot Pi Zero W directly over USB via WebUSB
+// ═══════════════════════════════════════════════════════════════════════
+// Implements the rpiboot protocol:
+//   Phase 1: Send bootcode.bin via vendor control + bulk OUT
+//   Phase 2: File server — serve kernel.img on request
+// Pi boots entirely over USB cable, no SD card needed.
+
+const USB_BOOT_LOG = $('usbBootLog');
+const USB_BOOT_BTN = $('usbBootBtn');
+
+function usbLog(cls, msg) {
+  USB_BOOT_LOG.innerHTML += '\n<span class="' + cls + '">' + msg + '</span>';
+  USB_BOOT_LOG.scrollTop = USB_BOOT_LOG.scrollHeight;
+}
+
+// Fetch boot files from GitHub Pages
+async function fetchBootFiles() {
+  const base = location.href.replace(/\/[^/]*$/, '');
+  
+  const [bootcodeResp, kernelResp] = await Promise.all([
+    fetch(base + '/bootcode.bin').catch(() => fetch(base + '/rpiboot/bootcode.bin')),
+    fetch(base + '/kernel.img')
+  ]);
+  
+  if (!bootcodeResp.ok) throw new Error('bootcode.bin not found at ' + base);
+  if (!kernelResp.ok) throw new Error('kernel.img not found at ' + base);
+  
+  const bootcode = new Uint8Array(await bootcodeResp.arrayBuffer());
+  const kernel = new Uint8Array(await kernelResp.arrayBuffer());
+  return { bootcode, kernel };
+}
+
+USB_BOOT_BTN.onclick = async () => {
+  USB_BOOT_LOG.innerHTML = '';
+  USB_BOOT_BTN.disabled = true;
+  USB_BOOT_BTN.textContent = '⏳ Booting...';
+
+  try {
+    if (!navigator.usb) {
+      usbLog('r', '❌ WebUSB not supported. Use Chrome or Edge.');
+      return;
+    }
+
+    usbLog('b', '📥 Loading boot files...');
+    const { bootcode, kernel } = await fetchBootFiles();
+    usbLog('g', '   bootcode.bin: ' + bootcode.length + ' bytes');
+    usbLog('g', '   kernel.img:   ' + kernel.length + ' bytes');
+
+    // Request device
+    usbLog('b', '🔍 Select your Pi Zero W (0a5c:2763) in the USB picker...');
+    const device = await navigator.usb.requestDevice({
+      filters: [{ vendorId: 0x0a5c }]
+    });
+
+    await device.open();
+    await device.selectConfiguration(1);
+    await device.claimInterface(0);
+
+    // Find endpoints
+    const iface = device.configuration.interfaces[0];
+    let outEp;
+    for (const alt of iface.alternates) {
+      for (const ep of alt.endpoints) {
+        if (ep.direction === 'out') outEp = ep.endpointNumber;
+      }
+    }
+    usbLog('g', '   Connected, OUT EP' + outEp);
+
+    // Phase 1: Send bootcode.bin
+    usbLog('b', '📤 Phase 1: Sending bootcode.bin (' + bootcode.length + ' bytes)...');
+    
+    await device.controlTransferOut({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 0,
+      value: bootcode.length & 0xffff,
+      index: bootcode.length >> 16
+    });
+
+    const CHUNK = 65536;
+    let offset = 0;
+    while (offset < bootcode.length) {
+      const chunk = bootcode.slice(offset, offset + CHUNK);
+      await device.transferOut(outEp, chunk);
+      offset += CHUNK;
+    }
+    usbLog('g', '   Sent ' + bootcode.length + ' bytes');
+
+    // Read return code
+    const result = await device.controlTransferIn({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 0,
+      value: 4 & 0xffff,
+      index: 4 >> 16
+    }, 4);
+    
+    const retcode = new DataView(result.buffer).getUint32(0, true);
+    usbLog(retcode === 0 ? 'g' : 'r',
+      '   Return code: 0x' + retcode.toString(16) + (retcode === 0 ? ' ✓' : ' ✗'));
+
+    if (retcode !== 0) {
+      throw new Error('bootcode.bin returned error ' + retcode);
+    }
+
+    // Pi will disconnect and re-enumerate
+    usbLog('dim', '⏳ Pi re-enumerating... (may take a few seconds)');
+    device.ondisconnect = () => usbLog('dim', '   Pi disconnected (expected)');
+    await device.close();
+
+    // Wait for re-enumeration
+    const waitForReenum = async (timeoutMs = 15000) => {
+      const pollInt = 250;
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const devs = await navigator.usb.getDevices();
+        const pi = devs.find(d => d.vendorId === 0x0a5c &&
+          [0x2763, 0x2764, 0x2711, 0x2712].includes(d.productId));
+        if (pi) {
+          try {
+            await pi.open();
+            await pi.selectConfiguration(1);
+            await pi.claimInterface(0);
+            return pi;
+          } catch(e) {
+            try { await pi.close(); } catch(_) {}
+          }
+        }
+        await new Promise(r => setTimeout(r, pollInt));
+      }
+      throw new Error('Pi did not re-enumerate');
+    };
+
+    const newDevice = await waitForReenum();
+    usbLog('g', '   Pi re-connected ✓');
+
+    // Find OUT endpoint on new device
+    const newIface = newDevice.configuration.interfaces[0];
+    let newOutEp;
+    for (const alt of newIface.alternates) {
+      for (const ep of alt.endpoints) {
+        if (ep.direction === 'out') newOutEp = ep.endpointNumber;
+      }
+    }
+
+    // Phase 2: File server
+    usbLog('b', '📂 Phase 2: File server — serving kernel.img (' + kernel.length + ' bytes)...');
+    
+    const cmdNames = ['GetFileSize', 'ReadFile', 'Done'];
+    let going = true;
+
+    while (going) {
+      const msgBuf = await newDevice.controlTransferIn({
+        requestType: 'vendor',
+        recipient: 'device',
+        request: 0,
+        value: 260 & 0xffff,
+        index: 260 >> 16
+      }, 260);
+
+      if (!msgBuf || !msgBuf.buffer) break;
+
+      const view = new DataView(msgBuf.buffer);
+      const command = view.getInt32(0, true);
+      let filename = '';
+      for (let i = 4; i < 260; i++) {
+        const c = view.getUint8(i);
+        if (c === 0) break;
+        filename += String.fromCharCode(c);
+      }
+
+      const name = cmdNames[command] || 'CMD' + command;
+      usbLog('dim', '   ' + name + ' "' + filename + '"');
+
+      switch (command) {
+        case 0: { // GetFileSize
+          const isKernel = /^kernel\d*\.img$/.test(filename);
+          const size = isKernel ? kernel.length : 0;
+          await newDevice.controlTransferOut({
+            requestType: 'vendor',
+            recipient: 'device',
+            request: 0,
+            value: size & 0xffff,
+            index: size >> 16
+          });
+          if (size > 0) usbLog('g', '     -> ' + size + ' bytes');
+          break;
+        }
+        case 1: { // ReadFile
+          const isKernel = /^kernel\d*\.img$/.test(filename);
+          if (isKernel) {
+            usbLog('g', '     -> Sending ' + kernel.length + ' bytes...');
+            let kOff = 0;
+            while (kOff < kernel.length) {
+              const chunk = kernel.slice(kOff, kOff + CHUNK);
+              await newDevice.transferOut(newOutEp, chunk);
+              kOff += CHUNK;
+            }
+            usbLog('g', '     -> Sent ✓');
+          } else {
+            await newDevice.transferOut(newOutEp, new Uint8Array(0));
+          }
+          break;
+        }
+        case 2: // Done
+          usbLog('g', '✅ Done! ARM is now booting PiBridge firmware.');
+          going = false;
+          break;
+      }
+    }
+
+    await newDevice.close();
+    usbLog('g', '🎉 Pi booted successfully over USB!');
+
+  } catch (err) {
+    usbLog('r', '❌ Error: ' + err.message);
+    console.error(err);
+  } finally {
+    USB_BOOT_BTN.disabled = false;
+    USB_BOOT_BTN.textContent = '🚀  Boot over USB';
+  }
+};
+
+console.log('🔧 PiBridge — One Click Flash + Audio Reactive + USB Boot');
 console.log('📖 https://sylchi.github.io/pibridge/');
 })();
 </script>
