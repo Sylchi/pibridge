@@ -1,0 +1,7 @@
+{
+    "inherits": ["bcm2835"],
+    "build-tags": ["pizero", "hci", "hci_uart"],
+    "serial": "uart",
+    "binary-format": "bin",
+    "linkerscript": "targets/bcm2835.ld"
+}

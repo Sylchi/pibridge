@@ -1,0 +1,5 @@
+{
+    "inherits": ["bcm2835"],
+    "build-tags": ["qemu", "hci", "hci_uart"],
+    "linkerscript": "targets/bcm2835_qemu.ld"
+}
