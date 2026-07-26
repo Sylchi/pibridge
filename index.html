@@ -736,24 +736,39 @@ USB_BOOT_BTN.onclick = async () => {
     // Phase 1: Send bootcode.bin
     usbLog('b', '📤 Phase 1: Sending bootcode.bin (' + bootcode.length + ' bytes)...');
     
-    await device.controlTransferOut({
-      requestType: 'vendor',
-      recipient: 'device',
-      request: 0,
-      value: bootcode.length & 0xffff,
-      index: bootcode.length >> 16
-    });
-
-    const CHUNK = 65536;
-    let offset = 0;
-    while (offset < bootcode.length) {
-      const chunk = bootcode.slice(offset, offset + CHUNK);
-      await device.transferOut(outEp, chunk);
-      offset += CHUNK;
+    // ep_write helper: signal length via control OUT, then send data via bulk OUT
+    async function epWrite(device, outEp, data) {
+      await device.controlTransferOut({
+        requestType: 'vendor',
+        recipient: 'device',
+        request: 0,
+        value: data.length & 0xffff,
+        index: data.length >> 16
+      });
+      const C = 65536;
+      let off = 0;
+      while (off < data.length) {
+        const chunk = data.slice(off, off + C);
+        await device.transferOut(outEp, chunk);
+        off += C;
+      }
+      return data.length;
     }
+
+    // Step 1: Send boot_message { length=52624, signature=all_zeros } = 24 bytes
+    const bootMsg = new ArrayBuffer(24);
+    const bootMsgView = new DataView(bootMsg);
+    bootMsgView.setUint32(0, bootcode.length, true);  // length in little-endian
+    // rest is zero-filled (signature)
+    usbLog('dim', '   Sending boot_message (length=' + bootcode.length + ', sig=0)...');
+    await epWrite(device, outEp, new Uint8Array(bootMsg));
+    
+    // Step 2: Send bootcode.bin payload
+    usbLog('dim', '   Sending bootcode payload...');
+    await epWrite(device, outEp, bootcode);
     usbLog('g', '   Sent ' + bootcode.length + ' bytes');
 
-    // Read return code
+    // Step 3: Read return code
     const result = await device.controlTransferIn({
       requestType: 'vendor',
       recipient: 'device',
@@ -857,15 +872,10 @@ USB_BOOT_BTN.onclick = async () => {
           const isKernel = /^kernel\d*\.img$/.test(filename);
           if (isKernel) {
             usbLog('g', '     -> Sending ' + kernel.length + ' bytes...');
-            let kOff = 0;
-            while (kOff < kernel.length) {
-              const chunk = kernel.slice(kOff, kOff + CHUNK);
-              await newDevice.transferOut(newOutEp, chunk);
-              kOff += CHUNK;
-            }
+            await epWrite(newDevice, newOutEp, kernel);
             usbLog('g', '     -> Sent ✓');
           } else {
-            await newDevice.transferOut(newOutEp, new Uint8Array(0));
+            await epWrite(newDevice, newOutEp, new Uint8Array(0));
           }
           break;
         }
